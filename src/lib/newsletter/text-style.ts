@@ -31,11 +31,28 @@ export function newsletterTextStyleClassName(
 export function newsletterTextStyleCss(
   style: NewsletterTextStyle | undefined
 ): CSSProperties | undefined {
-  if (!style?.color) {
+  if (!style) {
+    return undefined
+  }
+
+  if (
+    !style.color &&
+    typeof style.fontSize !== "number" &&
+    typeof style.letterSpacing !== "number" &&
+    typeof style.lineHeight !== "number"
+  ) {
     return undefined
   }
 
   return {
     color: style.color,
+    fontSize:
+      typeof style.fontSize === "number" ? `${style.fontSize}px` : undefined,
+    letterSpacing:
+      typeof style.letterSpacing === "number"
+        ? `${style.letterSpacing}px`
+        : undefined,
+    lineHeight:
+      typeof style.lineHeight === "number" ? style.lineHeight : undefined,
   }
 }

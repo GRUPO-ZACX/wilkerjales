@@ -23,19 +23,26 @@ import {
   ArrowRight,
   ArrowUp,
   AtSign,
+  Copy,
+  FileText,
   Globe,
   GripVertical,
+  Image as ImageSymbol,
   ImageIcon,
   ImageOff,
   Link2,
   Mail,
+  MousePointerClick,
   Phone,
+  Plus,
   Quote,
   Scale,
+  Trash2,
 } from "lucide-react"
 
 import type {
   NewsletterContact,
+  NewsletterCustomSection,
   NewsletterSection,
   NewsletterSectionType,
   NewsletterTemplate,
@@ -82,6 +89,7 @@ export function NewsletterInlineCanvas({
 }: NewsletterInlineCanvasProps) {
   const isMobile = viewport === "mobile"
   const sections = getNewsletterSections(newsletter)
+  const visibleSections = sections.filter((section) => !section.hidden)
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -93,20 +101,30 @@ export function NewsletterInlineCanvas({
     newsletter.banner.trim() || "INFORMATIVO CONDOMINIAL · EDIÇÃO EM RASCUNHO"
   const theme = newsletter.theme ?? {}
 
-  function moveSection(type: NewsletterSectionType, direction: -1 | 1) {
-    const currentIndex = sections.findIndex((section) => section.type === type)
+  function moveSection(sectionId: string, direction: -1 | 1) {
+    const currentIndex = visibleSections.findIndex(
+      (section) => section.id === sectionId
+    )
     const nextIndex = currentIndex + direction
 
-    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= sections.length) {
+    if (
+      currentIndex < 0 ||
+      nextIndex < 0 ||
+      nextIndex >= visibleSections.length
+    ) {
       return
     }
 
     onChange((draft) => {
-      draft.sections = arrayMove(sections, currentIndex, nextIndex).map(
-        (section, index) => ({
-          ...section,
-          order: index,
-        })
+      const reorderedVisible = arrayMove(
+        visibleSections,
+        currentIndex,
+        nextIndex
+      )
+      const hiddenSections = sections.filter((section) => section.hidden)
+
+      draft.sections = [...reorderedVisible, ...hiddenSections].map(
+        (section, index) => ({ ...section, order: index })
       )
     })
   }
@@ -118,19 +136,96 @@ export function NewsletterInlineCanvas({
       return
     }
 
-    const activeIndex = sections.findIndex((section) => section.id === active.id)
-    const overIndex = sections.findIndex((section) => section.id === over.id)
+    const activeIndex = visibleSections.findIndex(
+      (section) => section.id === active.id
+    )
+    const overIndex = visibleSections.findIndex((section) => section.id === over.id)
 
     if (activeIndex < 0 || overIndex < 0) {
       return
     }
 
     onChange((draft) => {
-      draft.sections = arrayMove(sections, activeIndex, overIndex).map(
-        (section, index) => ({
-          ...section,
-          order: index,
-        })
+      const reorderedVisible = arrayMove(
+        visibleSections,
+        activeIndex,
+        overIndex
+      )
+      const hiddenSections = sections.filter((section) => section.hidden)
+
+      draft.sections = [...reorderedVisible, ...hiddenSections].map(
+        (section, index) => ({ ...section, order: index })
+      )
+    })
+  }
+
+  function addCustomSection(type: NewsletterCustomSection["type"]) {
+    const id = createSectionId(type)
+    const customSection = createCustomSection(type, id)
+
+    onChange((draft) => {
+      draft.customSections = [...(draft.customSections ?? []), customSection]
+      draft.sections = [
+        ...visibleSections,
+        {
+          id,
+          order: visibleSections.length,
+          type,
+        },
+        ...sections.filter((section) => section.hidden),
+      ].map((section, index) => ({ ...section, order: index }))
+    })
+  }
+
+  function duplicateSection(section: NewsletterSection) {
+    const customSection = newsletter.customSections?.find(
+      (item) => item.id === section.id
+    )
+
+    if (!customSection) {
+      return
+    }
+
+    const id = createSectionId(customSection.type)
+    const currentIndex = visibleSections.findIndex(
+      (item) => item.id === section.id
+    )
+    const nextSection = {
+      ...structuredClone(customSection),
+      id,
+    }
+    const nextSections = [...visibleSections]
+    nextSections.splice(currentIndex + 1, 0, {
+      id,
+      order: currentIndex + 1,
+      type: customSection.type,
+    })
+
+    onChange((draft) => {
+      draft.customSections = [...(draft.customSections ?? []), nextSection]
+      draft.sections = [
+        ...nextSections,
+        ...sections.filter((item) => item.hidden),
+      ].map((item, index) => ({ ...item, order: index }))
+    })
+  }
+
+  function deleteSection(section: NewsletterSection) {
+    onChange((draft) => {
+      if (section.type.startsWith("custom-")) {
+        draft.customSections = (draft.customSections ?? []).filter(
+          (item) => item.id !== section.id
+        )
+        draft.sections = sections
+          .filter((item) => item.id !== section.id)
+          .map((item, index) => ({ ...item, order: index }))
+        return
+      }
+
+      draft.sections = sections.map((item, index) =>
+        item.id === section.id
+          ? { ...item, hidden: true, order: index }
+          : { ...item, order: index }
       )
     })
   }
@@ -221,43 +316,50 @@ export function NewsletterInlineCanvas({
         >
           <div className={cn("min-w-0", isMobile ? "space-y-10" : "space-y-14")}>
             {editable ? (
-              <DndContext
-                collisionDetection={closestCenter}
-                id="newsletter-inline-section-sorter"
-                sensors={sensors}
-                onDragEnd={handleDragEnd}
-              >
-                <SortableContext
-                  items={sections.map((section) => section.id)}
-                  strategy={verticalListSortingStrategy}
+              <>
+                <AddSectionBar onAdd={addCustomSection} />
+                <DndContext
+                  collisionDetection={closestCenter}
+                  id="newsletter-inline-section-sorter"
+                  sensors={sensors}
+                  onDragEnd={handleDragEnd}
                 >
-                  {sections.map((section, index) => (
-                    <SortableSectionFrame
-                      key={section.id}
-                      index={index}
-                      section={section}
-                      total={sections.length}
-                      onMove={moveSection}
-                    >
-                      <NewsletterContentSection
-                        editable={editable}
-                        isMobile={isMobile}
-                        newsletter={newsletter}
-                        type={section.type}
-                        onChange={onChange}
-                        textStyleProps={textStyleProps}
-                      />
-                    </SortableSectionFrame>
-                  ))}
-                </SortableContext>
-              </DndContext>
+                  <SortableContext
+                    items={visibleSections.map((section) => section.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    {visibleSections.map((section, index) => (
+                      <SortableSectionFrame
+                        key={section.id}
+                        index={index}
+                        section={section}
+                        total={visibleSections.length}
+                        onDelete={deleteSection}
+                        onDuplicate={duplicateSection}
+                        onMove={moveSection}
+                      >
+                        <NewsletterContentSection
+                          editable={editable}
+                          isMobile={isMobile}
+                          newsletter={newsletter}
+                          section={section}
+                          type={section.type}
+                          onChange={onChange}
+                          textStyleProps={textStyleProps}
+                        />
+                      </SortableSectionFrame>
+                    ))}
+                  </SortableContext>
+                </DndContext>
+              </>
             ) : (
-              sections.map((section) => (
+              visibleSections.map((section) => (
                 <div key={section.id} className="relative min-w-0">
                   <NewsletterContentSection
                     editable={editable}
                     isMobile={isMobile}
                     newsletter={newsletter}
+                    section={section}
                     type={section.type}
                     onChange={onChange}
                     textStyleProps={textStyleProps}
@@ -295,6 +397,7 @@ type NewsletterContentSectionProps = {
   isMobile: boolean
   newsletter: NewsletterTemplate
   onChange: (updater: (draft: NewsletterTemplate) => void) => void
+  section: NewsletterSection
   textStyleProps: (fieldId: string) => {
     onTextStyleChange: (style: NewsletterTextStyle) => void
     textStyle: NewsletterTextStyle | undefined
@@ -307,6 +410,7 @@ function NewsletterContentSection({
   isMobile,
   newsletter,
   onChange,
+  section,
   textStyleProps,
   type,
 }: NewsletterContentSectionProps) {
@@ -370,13 +474,101 @@ function NewsletterContentSection({
     )
   }
 
+  if (type === "custom-text") {
+    return (
+      <EditableCustomTextSection
+        editable={editable}
+        newsletter={newsletter}
+        section={section}
+        onChange={onChange}
+        textStyleProps={textStyleProps}
+      />
+    )
+  }
+
+  if (type === "custom-image") {
+    return (
+      <EditableCustomImageSection
+        editable={editable}
+        newsletter={newsletter}
+        section={section}
+        onChange={onChange}
+        textStyleProps={textStyleProps}
+      />
+    )
+  }
+
+  if (type === "custom-button") {
+    return (
+      <EditableCustomButtonSection
+        editable={editable}
+        isMobile={isMobile}
+        newsletter={newsletter}
+        section={section}
+        onChange={onChange}
+        textStyleProps={textStyleProps}
+      />
+    )
+  }
+
   return null
+}
+
+type AddSectionBarProps = {
+  onAdd: (type: NewsletterCustomSection["type"]) => void
+}
+
+function AddSectionBar({ onAdd }: AddSectionBarProps) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-black/10 bg-white p-2 text-black shadow-[0_10px_30px_rgba(0,0,0,0.06)]">
+      <span className="inline-flex items-center gap-1.5 px-2 text-xs font-semibold uppercase tracking-[0.12em] text-black/45">
+        <Plus className="size-3.5" />
+        Nova seção
+      </span>
+      <AddSectionButton
+        icon={<FileText className="size-4" />}
+        label="Texto"
+        onClick={() => onAdd("custom-text")}
+      />
+      <AddSectionButton
+        icon={<ImageSymbol className="size-4" />}
+        label="Imagem"
+        onClick={() => onAdd("custom-image")}
+      />
+      <AddSectionButton
+        icon={<MousePointerClick className="size-4" />}
+        label="Botão"
+        onClick={() => onAdd("custom-button")}
+      />
+    </div>
+  )
+}
+
+type AddSectionButtonProps = {
+  icon: ReactNode
+  label: string
+  onClick: () => void
+}
+
+function AddSectionButton({ icon, label, onClick }: AddSectionButtonProps) {
+  return (
+    <button
+      className="inline-flex h-9 items-center gap-2 rounded-lg border border-black/10 bg-white px-3 text-xs font-semibold text-black transition-colors hover:bg-black hover:text-white"
+      onClick={onClick}
+      type="button"
+    >
+      {icon}
+      {label}
+    </button>
+  )
 }
 
 type SortableSectionFrameProps = {
   children: ReactNode
   index: number
-  onMove: (type: NewsletterSectionType, direction: -1 | 1) => void
+  onDelete: (section: NewsletterSection) => void
+  onDuplicate: (section: NewsletterSection) => void
+  onMove: (sectionId: string, direction: -1 | 1) => void
   section: NewsletterSection
   total: number
 }
@@ -384,6 +576,8 @@ type SortableSectionFrameProps = {
 function SortableSectionFrame({
   children,
   index,
+  onDelete,
+  onDuplicate,
   onMove,
   section,
   total,
@@ -411,9 +605,9 @@ function SortableSectionFrame({
       )}
       style={style}
     >
-      <div className="absolute -top-4 right-0 z-30 flex items-center overflow-hidden rounded-sm border border-[#B7B783] bg-[#F7F5EE]/95 shadow-[0_10px_28px_rgba(22,59,53,0.12)]">
+      <div className="absolute -top-4 right-0 z-30 flex items-center overflow-hidden rounded-lg border border-black/10 bg-white/95 text-black shadow-[0_10px_28px_rgba(0,0,0,0.12)]">
         <button
-          className="cursor-grab px-2 py-1.5 text-[#244F49] hover:bg-[#ECE8D8] active:cursor-grabbing"
+          className="cursor-grab px-2 py-1.5 text-black/65 hover:bg-black/5 active:cursor-grabbing"
           type="button"
           {...attributes}
           {...listeners}
@@ -422,22 +616,39 @@ function SortableSectionFrame({
           <span className="sr-only">Arrastar bloco</span>
         </button>
         <button
-          className="border-l border-[#B7B783] px-2 py-1.5 text-[#244F49] hover:bg-[#ECE8D8] disabled:cursor-not-allowed disabled:opacity-40"
+          className="border-l border-black/10 px-2 py-1.5 text-black/65 hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40"
           disabled={index === 0}
-          onClick={() => onMove(section.type, -1)}
+          onClick={() => onMove(section.id, -1)}
           type="button"
         >
           <ArrowUp className="size-4" />
           <span className="sr-only">Mover bloco para cima</span>
         </button>
         <button
-          className="border-l border-[#B7B783] px-2 py-1.5 text-[#244F49] hover:bg-[#ECE8D8] disabled:cursor-not-allowed disabled:opacity-40"
+          className="border-l border-black/10 px-2 py-1.5 text-black/65 hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40"
           disabled={index === total - 1}
-          onClick={() => onMove(section.type, 1)}
+          onClick={() => onMove(section.id, 1)}
           type="button"
         >
           <ArrowDown className="size-4" />
           <span className="sr-only">Mover bloco para baixo</span>
+        </button>
+        <button
+          className="border-l border-black/10 px-2 py-1.5 text-black/65 hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40"
+          disabled={!section.type.startsWith("custom-")}
+          onClick={() => onDuplicate(section)}
+          type="button"
+        >
+          <Copy className="size-4" />
+          <span className="sr-only">Duplicar seção</span>
+        </button>
+        <button
+          className="border-l border-black/10 px-2 py-1.5 text-black/65 hover:bg-black/5"
+          onClick={() => onDelete(section)}
+          type="button"
+        >
+          <Trash2 className="size-4" />
+          <span className="sr-only">Excluir seção</span>
         </button>
       </div>
       {children}
@@ -667,7 +878,7 @@ function EditableHero({
   newsletter,
   onChange,
   textStyleProps,
-}: Omit<NewsletterContentSectionProps, "type">) {
+}: Omit<NewsletterContentSectionProps, "section" | "type">) {
   const intro = newsletter.intro.length > 0 ? newsletter.intro : [{ text: "" }]
 
   return (
@@ -735,7 +946,7 @@ function EditableDecisionBox({
   newsletter,
   onChange,
   textStyleProps,
-}: Omit<NewsletterContentSectionProps, "type">) {
+}: Omit<NewsletterContentSectionProps, "section" | "type">) {
   const topics =
     newsletter.decisionTopics.length > 0
       ? newsletter.decisionTopics
@@ -805,7 +1016,7 @@ function EditableBody({
   newsletter,
   onChange,
   textStyleProps,
-}: Omit<NewsletterContentSectionProps, "type">) {
+}: Omit<NewsletterContentSectionProps, "section" | "type">) {
   const blocks =
     newsletter.bodyBlocks.length > 0
       ? newsletter.bodyBlocks
@@ -823,6 +1034,41 @@ function EditableBody({
           >
             <div className="bg-[#244F49]" />
             <div className="min-w-0 pb-1">
+              {editable && (
+                <div className="mb-3 flex flex-wrap gap-2">
+                  <BlockActionButton
+                    icon={<Plus className="size-3.5" />}
+                    label="Novo parágrafo"
+                    onClick={() =>
+                      onChange((draft) => {
+                        draft.bodyBlocks[index].paragraphs.push("")
+                      })
+                    }
+                  />
+                  <BlockActionButton
+                    icon={<Copy className="size-3.5" />}
+                    label="Duplicar bloco"
+                    onClick={() =>
+                      onChange((draft) => {
+                        draft.bodyBlocks.splice(index + 1, 0, {
+                          ...structuredClone(draft.bodyBlocks[index]),
+                        })
+                      })
+                    }
+                  />
+                  <BlockActionButton
+                    icon={<Trash2 className="size-3.5" />}
+                    label="Excluir bloco"
+                    onClick={() =>
+                      onChange((draft) => {
+                        if (draft.bodyBlocks.length > 1) {
+                          draft.bodyBlocks.splice(index, 1)
+                        }
+                      })
+                    }
+                  />
+                </div>
+              )}
               <InlineText
                 ariaLabel={`Título do bloco explicativo ${index + 1}`}
                 className={cn(
@@ -842,23 +1088,44 @@ function EditableBody({
               />
               <div className="mt-5 space-y-5 text-[16px] leading-8 text-[#404038] [overflow-wrap:anywhere]">
                 {paragraphs.map((paragraph, paragraphIndex) => (
-                  <InlineText
+                  <div
                     key={`${paragraphIndex}-${paragraph}`}
-                    ariaLabel={`Parágrafo ${paragraphIndex + 1} do bloco ${index + 1}`}
-                    editable={editable}
-                    placeholder="Texto explicativo do informativo."
-                    renderAs="p"
-                    value={paragraph}
-                    onChange={(value) =>
-                      onChange((draft) => {
-                        draft.bodyBlocks[index].paragraphs[paragraphIndex] =
-                          value
-                      })
-                    }
-                    {...textStyleProps(
-                      `bodyBlocks.${index}.paragraphs.${paragraphIndex}`
+                    className="group/paragraph relative"
+                  >
+                    <InlineText
+                      ariaLabel={`Parágrafo ${paragraphIndex + 1} do bloco ${index + 1}`}
+                      editable={editable}
+                      placeholder="Texto explicativo do informativo."
+                      renderAs="p"
+                      value={paragraph}
+                      onChange={(value) =>
+                        onChange((draft) => {
+                          draft.bodyBlocks[index].paragraphs[paragraphIndex] =
+                            value
+                        })
+                      }
+                      {...textStyleProps(
+                        `bodyBlocks.${index}.paragraphs.${paragraphIndex}`
+                      )}
+                    />
+                    {editable && paragraphs.length > 1 && (
+                      <button
+                        className="absolute -right-2 -top-2 grid size-7 place-items-center rounded-full border border-black/10 bg-white text-black/45 opacity-0 shadow-sm transition-opacity hover:text-black group-hover/paragraph:opacity-100"
+                        onClick={() =>
+                          onChange((draft) => {
+                            draft.bodyBlocks[index].paragraphs.splice(
+                              paragraphIndex,
+                              1
+                            )
+                          })
+                        }
+                        type="button"
+                      >
+                        <Trash2 className="size-3.5" />
+                        <span className="sr-only">Excluir parágrafo</span>
+                      </button>
                     )}
-                  />
+                  </div>
                 ))}
               </div>
             </div>
@@ -869,13 +1136,32 @@ function EditableBody({
   )
 }
 
+type BlockActionButtonProps = {
+  icon: ReactNode
+  label: string
+  onClick: () => void
+}
+
+function BlockActionButton({ icon, label, onClick }: BlockActionButtonProps) {
+  return (
+    <button
+      className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-black/10 bg-white px-2.5 text-xs font-semibold text-black/60 shadow-sm transition-colors hover:bg-black hover:text-white"
+      onClick={onClick}
+      type="button"
+    >
+      {icon}
+      {label}
+    </button>
+  )
+}
+
 function EditableSyndicCards({
   editable,
   isMobile,
   newsletter,
   onChange,
   textStyleProps,
-}: Omit<NewsletterContentSectionProps, "type">) {
+}: Omit<NewsletterContentSectionProps, "section" | "type">) {
   const cards =
     newsletter.syndicCards.length > 0
       ? newsletter.syndicCards
@@ -970,7 +1256,7 @@ function EditableCta({
   newsletter,
   onChange,
   textStyleProps,
-}: Omit<NewsletterContentSectionProps, "type">) {
+}: Omit<NewsletterContentSectionProps, "section" | "type">) {
   const cta = newsletter.cta
   const label = cta.label.trim() || "Falar com o escritório"
   const href = cta.href.trim() || "#"
@@ -1055,6 +1341,282 @@ function EditableCta({
               onChange={(href) =>
                 onChange((draft) => {
                   draft.cta.href = href
+                })
+              }
+            />
+          )}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function EditableCustomTextSection({
+  editable,
+  newsletter,
+  onChange,
+  section,
+  textStyleProps,
+}: Omit<NewsletterContentSectionProps, "isMobile" | "type">) {
+  const customSection = newsletter.customSections?.find(
+    (item) => item.id === section.id && item.type === "custom-text"
+  )
+
+  if (!customSection || customSection.type !== "custom-text") {
+    return null
+  }
+
+  return (
+    <section className="grid grid-cols-[5px_minmax(0,1fr)] gap-5">
+      <div className="bg-[#244F49]" />
+      <div className="min-w-0 pb-1">
+        <InlineText
+          ariaLabel="Título da seção de texto"
+          className="max-w-2xl text-[32px] font-semibold leading-tight tracking-[-0.02em] text-[#1F1F1A]"
+          editable={editable}
+          placeholder="Novo título"
+          renderAs="h2"
+          value={customSection.title}
+          onChange={(value) =>
+            onChange((draft) => {
+              const item = findCustomSection(draft, section.id, "custom-text")
+              if (item) {
+                item.title = value
+              }
+            })
+          }
+          {...textStyleProps(`customSections.${section.id}.title`)}
+        />
+        <InlineRichText
+          ariaLabel="Texto da seção"
+          className="mt-5 text-[16px] leading-8 text-[#404038]"
+          editable={editable}
+          placeholder="Escreva aqui o novo conteúdo do informativo."
+          segments={customSection.body}
+          onChange={(segments) =>
+            onChange((draft) => {
+              const item = findCustomSection(draft, section.id, "custom-text")
+              if (item) {
+                item.body = segments
+              }
+            })
+          }
+          {...textStyleProps(`customSections.${section.id}.body`)}
+        />
+      </div>
+    </section>
+  )
+}
+
+function EditableCustomImageSection({
+  editable,
+  newsletter,
+  onChange,
+  section,
+  textStyleProps,
+}: Omit<NewsletterContentSectionProps, "isMobile" | "type">) {
+  const customSection = newsletter.customSections?.find(
+    (item) => item.id === section.id && item.type === "custom-image"
+  )
+
+  if (!customSection || customSection.type !== "custom-image") {
+    return null
+  }
+
+  return (
+    <section className="border border-[#B7B783]/80 bg-white p-4">
+      <div className="group/custom-image relative flex aspect-[16/9] min-h-56 items-center justify-center overflow-hidden bg-[#ECE8D8]">
+        {customSection.imageUrl ? (
+          <div
+            aria-label={customSection.imageAlt ?? "Imagem do informativo"}
+            className="h-full w-full bg-cover bg-center"
+            role="img"
+            style={{ backgroundImage: `url(${customSection.imageUrl})` }}
+          />
+        ) : (
+          <div className="grid gap-3 text-center text-[#244F49]">
+            <ImageSymbol className="mx-auto size-10" />
+            <p className="text-sm font-semibold">
+              Adicione uma imagem nesta seção
+            </p>
+          </div>
+        )}
+
+        {editable && (
+          <label className="absolute inset-0 grid cursor-pointer place-items-center bg-[#163B35]/0 text-sm font-semibold text-[#F7F5EE] opacity-0 transition-opacity group-hover/custom-image:bg-[#163B35]/70 group-hover/custom-image:opacity-100">
+            <span className="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-black">
+              <ImageIcon className="size-4" />
+              Trocar imagem
+            </span>
+            <input
+              accept="image/*"
+              className="sr-only"
+              type="file"
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                if (!file) {
+                  return
+                }
+
+                const url = URL.createObjectURL(file)
+                onChange((draft) => {
+                  const item = findCustomSection(
+                    draft,
+                    section.id,
+                    "custom-image"
+                  )
+                  if (item) {
+                    item.imageAlt = file.name
+                    item.imageUrl = url
+                  }
+                })
+                event.target.value = ""
+              }}
+            />
+          </label>
+        )}
+      </div>
+      <InlineText
+        ariaLabel="Legenda da imagem"
+        className="mt-3 text-xs leading-6 text-[#404038]"
+        editable={editable}
+        placeholder="Legenda opcional da imagem."
+        renderAs="p"
+        value={customSection.caption}
+        onChange={(value) =>
+          onChange((draft) => {
+            const item = findCustomSection(draft, section.id, "custom-image")
+            if (item) {
+              item.caption = value
+            }
+          })
+        }
+        {...textStyleProps(`customSections.${section.id}.caption`)}
+      />
+    </section>
+  )
+}
+
+function EditableCustomButtonSection({
+  editable,
+  isMobile,
+  newsletter,
+  onChange,
+  section,
+  textStyleProps,
+}: Omit<NewsletterContentSectionProps, "type">) {
+  const customSection = newsletter.customSections?.find(
+    (item) => item.id === section.id && item.type === "custom-button"
+  )
+
+  if (!customSection || customSection.type !== "custom-button") {
+    return null
+  }
+
+  const label = customSection.label.trim() || "Abrir link"
+  const href = customSection.href.trim() || "#"
+
+  return (
+    <section
+      className={cn(
+        "border border-[#B7B783] bg-white",
+        isMobile ? "p-5" : "p-6 sm:p-7"
+      )}
+    >
+      <div className={cn("grid gap-5", !isMobile && "sm:grid-cols-[1fr_auto] sm:items-center")}>
+        <div className="min-w-0">
+          <InlineText
+            ariaLabel="Título da seção com botão"
+            className="text-2xl font-semibold leading-tight text-[#163B35]"
+            editable={editable}
+            placeholder="Título da chamada"
+            renderAs="h2"
+            value={customSection.title}
+            onChange={(value) =>
+              onChange((draft) => {
+                const item = findCustomSection(
+                  draft,
+                  section.id,
+                  "custom-button"
+                )
+                if (item) {
+                  item.title = value
+                }
+              })
+            }
+            {...textStyleProps(`customSections.${section.id}.title`)}
+          />
+          <InlineText
+            ariaLabel="Descrição da seção com botão"
+            className="mt-3 max-w-2xl text-sm leading-6 text-[#404038]"
+            editable={editable}
+            placeholder="Explique o próximo passo em uma frase curta."
+            renderAs="p"
+            value={customSection.description}
+            onChange={(value) =>
+              onChange((draft) => {
+                const item = findCustomSection(
+                  draft,
+                  section.id,
+                  "custom-button"
+                )
+                if (item) {
+                  item.description = value
+                }
+              })
+            }
+            {...textStyleProps(`customSections.${section.id}.description`)}
+          />
+        </div>
+
+        <div className="min-w-0">
+          {editable ? (
+            <div className="inline-flex w-fit max-w-full items-center gap-2 rounded-sm bg-[#244F49] px-5 py-3 text-sm font-semibold uppercase tracking-[0.14em] text-[#F7F5EE]">
+              <InlineText
+                ariaLabel="Texto do botão"
+                editable
+                multiline={false}
+                placeholder="Abrir link"
+                value={label}
+                onChange={(value) =>
+                  onChange((draft) => {
+                    const item = findCustomSection(
+                      draft,
+                      section.id,
+                      "custom-button"
+                    )
+                    if (item) {
+                      item.label = value
+                    }
+                  })
+                }
+                {...textStyleProps(`customSections.${section.id}.label`)}
+              />
+              <ArrowRight className="size-4 shrink-0" />
+            </div>
+          ) : (
+            <Link
+              className="inline-flex w-fit max-w-full items-center gap-2 rounded-sm bg-[#244F49] px-5 py-3 text-sm font-semibold uppercase tracking-[0.14em] text-[#F7F5EE] transition-colors hover:bg-[#163B35]"
+              href={href}
+            >
+              <span className="[overflow-wrap:anywhere]">{label}</span>
+              <ArrowRight className="size-4 shrink-0" />
+            </Link>
+          )}
+          {editable && (
+            <LinkPopoverButton
+              className="mt-3"
+              value={customSection.href}
+              onChange={(value) =>
+                onChange((draft) => {
+                  const item = findCustomSection(
+                    draft,
+                    section.id,
+                    "custom-button"
+                  )
+                  if (item) {
+                    item.href = value
+                  }
                 })
               }
             />
@@ -1608,9 +2170,9 @@ function LinkPopoverButton({
         Link
       </button>
       {isOpen && (
-        <span className="absolute left-0 top-10 z-40 flex w-[min(330px,calc(100vw-32px))] items-center gap-2 rounded-lg border border-black/10 bg-white p-2 text-black shadow-[0_16px_42px_rgba(0,0,0,0.14)]">
+        <span className="absolute left-0 top-10 z-40 flex w-[min(420px,calc(100vw-32px))] items-center gap-2 rounded-xl border border-black/10 bg-white p-2.5 text-black shadow-[0_18px_48px_rgba(0,0,0,0.16)]">
           <input
-            className="h-8 min-w-0 flex-1 rounded-md border border-black/15 px-2 text-xs outline-none focus:border-black/45"
+            className="h-11 min-w-0 flex-1 rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-black/45"
             placeholder="https://..."
             value={draftValue}
             onChange={(event) => setDraftValue(event.target.value)}
@@ -1623,7 +2185,7 @@ function LinkPopoverButton({
             }}
           />
           <button
-            className="h-8 rounded-md bg-black px-3 text-xs font-semibold text-white"
+            className="h-11 rounded-lg bg-black px-4 text-sm font-semibold text-white"
             onClick={() => {
               onChange(draftValue)
               setIsOpen(false)
@@ -1635,6 +2197,57 @@ function LinkPopoverButton({
         </span>
       )}
     </span>
+  )
+}
+
+function createSectionId(type: NewsletterCustomSection["type"]) {
+  const randomId =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`
+
+  return `${type}-${randomId}`
+}
+
+function createCustomSection(
+  type: NewsletterCustomSection["type"],
+  id: string
+): NewsletterCustomSection {
+  if (type === "custom-image") {
+    return {
+      caption: "",
+      id,
+      type,
+    }
+  }
+
+  if (type === "custom-button") {
+    return {
+      description: "Use esta chamada para direcionar o leitor para uma ação.",
+      href: "https://",
+      id,
+      label: "Abrir link",
+      title: "Nova chamada",
+      type,
+    }
+  }
+
+  return {
+    body: [{ text: "Escreva aqui o novo conteúdo do informativo." }],
+    id,
+    title: "Nova seção",
+    type,
+  }
+}
+
+function findCustomSection<T extends NewsletterCustomSection["type"]>(
+  newsletter: NewsletterTemplate,
+  id: string,
+  type: T
+) {
+  return newsletter.customSections?.find(
+    (section): section is Extract<NewsletterCustomSection, { type: T }> =>
+      section.id === id && section.type === type
   )
 }
 

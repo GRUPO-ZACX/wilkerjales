@@ -6,7 +6,25 @@ import {
   useRef,
   useState,
   type ElementType,
+  type ReactNode,
 } from "react"
+import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
+  Baseline,
+  Bold,
+  CaseLower,
+  CaseSensitive,
+  CaseUpper,
+  Italic,
+  Link2,
+  MoveHorizontal,
+  Paintbrush,
+  Rows3,
+  Type,
+  Underline as UnderlineIcon,
+} from "lucide-react"
 import Color from "@tiptap/extension-color"
 import Link from "@tiptap/extension-link"
 import TextAlign from "@tiptap/extension-text-align"
@@ -52,6 +70,13 @@ export function InlineText({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const displayValue = value.trim() || placeholder
   const textStyleClassName = textStyleClasses(textStyle)
+  const textStyleInline = textStyleInlineStyle(textStyle)
+  const inputStyle = {
+    ...textStyleInline,
+    width: !multiline
+      ? `${Math.max(value.length, placeholder.length, 4) + 1}ch`
+      : undefined,
+  }
 
   useLayoutEffect(() => {
     const textarea = textareaRef.current
@@ -113,8 +138,8 @@ export function InlineText({
         ref={textareaRef}
         aria-label={ariaLabel}
         className={cn(
-          "block w-full min-w-0 resize-none overflow-hidden rounded-[2px] border border-transparent bg-transparent p-0 text-inherit outline-none transition-[border-color] placeholder:text-[#8A8A76] focus:border-[#B7B783]/80 focus:bg-transparent",
-          !multiline && "whitespace-nowrap",
+          "block min-w-0 resize-none overflow-hidden rounded-[2px] border border-transparent bg-transparent p-0 text-inherit outline-none transition-[border-color] placeholder:text-[#8A8A76] focus:border-[#B7B783]/80 focus:bg-transparent",
+          multiline ? "w-full" : "w-auto max-w-full whitespace-nowrap",
           className,
           textStyleClassName
         )}
@@ -129,7 +154,7 @@ export function InlineText({
         }}
         placeholder={placeholder}
         rows={1}
-        style={textStyleInlineStyle(textStyle)}
+        style={inputStyle}
         value={value}
       />
     </span>
@@ -295,22 +320,15 @@ function TextToolbar({
   onUpper,
   textStyle,
 }: TextToolbarProps) {
-  const nextLineHeight = cycleValue(textStyle?.lineHeight, [
-    "compact",
-    "normal",
-    "loose",
-  ])
-  const nextLetterSpacing = cycleValue(textStyle?.letterSpacing, [
-    "normal",
-    "wide",
-    "wider",
-  ])
+  const fontSize = numericStyleValue(textStyle?.fontSize, 16)
+  const lineHeight = numericStyleValue(textStyle?.lineHeight, 1.45)
+  const letterSpacing = numericStyleValue(textStyle?.letterSpacing, 0)
 
   return (
-    <span className="absolute -top-10 left-0 z-20 flex max-w-[min(720px,calc(100vw-32px))] items-center overflow-x-auto rounded-md border border-black/10 bg-white text-black shadow-[0_10px_30px_rgba(0,0,0,0.10)]">
+    <span className="absolute -top-12 left-0 z-20 flex max-w-[min(920px,calc(100vw-32px))] items-center gap-1 overflow-x-auto rounded-xl border border-black/10 bg-white p-1 text-black shadow-[0_14px_36px_rgba(0,0,0,0.12)]">
       <ToolbarButton
         active={textStyle?.bold}
-        label="B"
+        icon={<Bold className="size-4" />}
         title="Negrito"
         onClick={() => {
           if (onBold) {
@@ -322,8 +340,8 @@ function TextToolbar({
       />
       <ToolbarButton
         active={textStyle?.fontFamily === "serif"}
-        label="Serif"
-        title="Fonte serifada"
+        icon={<Type className="size-4" />}
+        title="Alternar fonte serifada"
         onClick={() =>
           onChange?.({
             fontFamily: textStyle?.fontFamily === "serif" ? "sans" : "serif",
@@ -331,40 +349,76 @@ function TextToolbar({
         }
       />
       <ToolbarButton
-        label={lineHeightLabel(textStyle?.lineHeight)}
-        title="Entrelinha"
-        onClick={() => onChange?.({ lineHeight: nextLineHeight })}
-      />
-      <ToolbarButton
-        label={letterSpacingLabel(textStyle?.letterSpacing)}
-        title="Entre letras"
-        onClick={() => onChange?.({ letterSpacing: nextLetterSpacing })}
-      />
-      <ToolbarButton
         active={textStyle?.align === "left" || !textStyle?.align}
-        label="E"
+        icon={<AlignLeft className="size-4" />}
         title="Alinhar à esquerda"
         onClick={() => onChange?.({ align: "left" })}
       />
       <ToolbarButton
         active={textStyle?.align === "center"}
-        label="C"
+        icon={<AlignCenter className="size-4" />}
         title="Centralizar"
         onClick={() => onChange?.({ align: "center" })}
       />
       <ToolbarButton
         active={textStyle?.align === "right"}
-        label="D"
+        icon={<AlignRight className="size-4" />}
         title="Alinhar à direita"
         onClick={() => onChange?.({ align: "right" })}
       />
-      <ToolbarButton label="AA" title="Maiúsculas" onClick={onUpper} />
+      <ToolbarButton
+        icon={<CaseUpper className="size-4" />}
+        title="Maiúsculas"
+        onClick={onUpper}
+      />
       {onTitle && (
-        <ToolbarButton label="Aa" title="Título" onClick={onTitle} />
+        <ToolbarButton
+          icon={<CaseSensitive className="size-4" />}
+          title="Caixa de título"
+          onClick={onTitle}
+        />
       )}
-      <ToolbarButton label="aa" title="Minúsculas" onClick={onLower} />
+      <ToolbarButton
+        icon={<CaseLower className="size-4" />}
+        title="Minúsculas"
+        onClick={onLower}
+      />
+      {onChange && (
+        <ToolbarRange
+          icon={<Baseline className="size-4" />}
+          label="Tamanho"
+          max={72}
+          min={10}
+          step={1}
+          value={fontSize}
+          onChange={(value) => onChange({ fontSize: value })}
+        />
+      )}
+      {onChange && (
+        <ToolbarRange
+          icon={<Rows3 className="size-4" />}
+          label="Entrelinha"
+          max={2.2}
+          min={0.9}
+          step={0.05}
+          value={lineHeight}
+          onChange={(value) => onChange({ lineHeight: value })}
+        />
+      )}
+      {onChange && (
+        <ToolbarRange
+          icon={<MoveHorizontal className="size-4" />}
+          label="Entre letras"
+          max={5}
+          min={-0.5}
+          step={0.1}
+          value={letterSpacing}
+          onChange={(value) => onChange({ letterSpacing: value })}
+        />
+      )}
       {onChange && (
         <span className="flex items-center gap-1 border-l border-black/10 pl-1">
+          <Paintbrush className="mx-1 size-4 text-black/45" />
           {richTextColors.map((color) => (
             <button
               key={color.value}
@@ -402,16 +456,9 @@ const richTextColors = [
 function RichTextToolbar({ editor, onChange, textStyle }: RichTextToolbarProps) {
   const [isLinkOpen, setIsLinkOpen] = useState(false)
   const [linkValue, setLinkValue] = useState("")
-  const nextLineHeight = cycleValue(textStyle?.lineHeight, [
-    "compact",
-    "normal",
-    "loose",
-  ])
-  const nextLetterSpacing = cycleValue(textStyle?.letterSpacing, [
-    "normal",
-    "wide",
-    "wider",
-  ])
+  const fontSize = numericStyleValue(textStyle?.fontSize, 16)
+  const lineHeight = numericStyleValue(textStyle?.lineHeight, 1.45)
+  const letterSpacing = numericStyleValue(textStyle?.letterSpacing, 0)
 
   function openLinkEditor() {
     setLinkValue(editor.getAttributes("link").href ?? "")
@@ -437,45 +484,35 @@ function RichTextToolbar({ editor, onChange, textStyle }: RichTextToolbarProps) 
   }
 
   return (
-    <span className="absolute -top-12 left-0 z-30 flex max-w-[min(760px,calc(100vw-32px))] items-center gap-1 rounded-lg border border-black/10 bg-white p-1 text-black shadow-[0_12px_34px_rgba(0,0,0,0.12)]">
+    <span className="absolute -top-12 left-0 z-30 flex max-w-[min(980px,calc(100vw-32px))] items-center gap-1 overflow-x-auto rounded-xl border border-black/10 bg-white p-1 text-black shadow-[0_14px_36px_rgba(0,0,0,0.12)]">
       <ToolbarButton
         active={editor.isActive("bold")}
-        label="B"
+        icon={<Bold className="size-4" />}
         title="Negrito"
         onClick={() => editor.chain().focus().toggleBold().run()}
       />
       <ToolbarButton
         active={editor.isActive("italic")}
-        label="I"
+        icon={<Italic className="size-4" />}
         title="Itálico"
         onClick={() => editor.chain().focus().toggleItalic().run()}
       />
       <ToolbarButton
         active={editor.isActive("underline")}
-        label="U"
+        icon={<UnderlineIcon className="size-4" />}
         title="Sublinhado"
         onClick={() => editor.chain().focus().toggleUnderline().run()}
       />
       <ToolbarButton
         active={editor.isActive("link")}
-        label="Link"
+        icon={<Link2 className="size-4" />}
         title="Editar link"
         onClick={openLinkEditor}
       />
       <ToolbarButton
-        label={lineHeightLabel(textStyle?.lineHeight)}
-        title="Entrelinha"
-        onClick={() => onChange?.({ lineHeight: nextLineHeight })}
-      />
-      <ToolbarButton
-        label={letterSpacingLabel(textStyle?.letterSpacing)}
-        title="Entre letras"
-        onClick={() => onChange?.({ letterSpacing: nextLetterSpacing })}
-      />
-      <ToolbarButton
         active={textStyle?.fontFamily === "serif"}
-        label="Serif"
-        title="Fonte serifada"
+        icon={<Type className="size-4" />}
+        title="Alternar fonte serifada"
         onClick={() =>
           onChange?.({
             fontFamily: textStyle?.fontFamily === "serif" ? "sans" : "serif",
@@ -484,23 +521,57 @@ function RichTextToolbar({ editor, onChange, textStyle }: RichTextToolbarProps) 
       />
       <ToolbarButton
         active={textStyle?.align === "left" || !textStyle?.align}
-        label="E"
+        icon={<AlignLeft className="size-4" />}
         title="Alinhar à esquerda"
         onClick={() => onChange?.({ align: "left" })}
       />
       <ToolbarButton
         active={textStyle?.align === "center"}
-        label="C"
+        icon={<AlignCenter className="size-4" />}
         title="Centralizar"
         onClick={() => onChange?.({ align: "center" })}
       />
       <ToolbarButton
         active={textStyle?.align === "right"}
-        label="D"
+        icon={<AlignRight className="size-4" />}
         title="Alinhar à direita"
         onClick={() => onChange?.({ align: "right" })}
       />
+      {onChange && (
+        <ToolbarRange
+          icon={<Baseline className="size-4" />}
+          label="Tamanho"
+          max={72}
+          min={10}
+          step={1}
+          value={fontSize}
+          onChange={(value) => onChange({ fontSize: value })}
+        />
+      )}
+      {onChange && (
+        <ToolbarRange
+          icon={<Rows3 className="size-4" />}
+          label="Entrelinha"
+          max={2.2}
+          min={0.9}
+          step={0.05}
+          value={lineHeight}
+          onChange={(value) => onChange({ lineHeight: value })}
+        />
+      )}
+      {onChange && (
+        <ToolbarRange
+          icon={<MoveHorizontal className="size-4" />}
+          label="Entre letras"
+          max={5}
+          min={-0.5}
+          step={0.1}
+          value={letterSpacing}
+          onChange={(value) => onChange({ letterSpacing: value })}
+        />
+      )}
       <span className="flex items-center gap-1 border-l border-black/10 pl-1">
+        <Paintbrush className="mx-1 size-4 text-black/45" />
         {richTextColors.map((color) => (
           <button
             key={color.value}
@@ -548,16 +619,16 @@ function RichTextToolbar({ editor, onChange, textStyle }: RichTextToolbarProps) 
 
 type ToolbarButtonProps = {
   active?: boolean
-  label: string
+  icon: ReactNode
   onClick?: () => void
   title: string
 }
 
-function ToolbarButton({ active, label, onClick, title }: ToolbarButtonProps) {
+function ToolbarButton({ active, icon, onClick, title }: ToolbarButtonProps) {
   return (
     <button
       className={cn(
-        "h-8 shrink-0 border-r border-black/10 px-2.5 text-[11px] font-semibold transition-colors last:border-r-0 hover:bg-black/5",
+        "grid size-8 shrink-0 place-items-center rounded-md text-black/70 transition-colors hover:bg-black/5 hover:text-black",
         active && "bg-black text-white hover:bg-black"
       )}
       disabled={!onClick}
@@ -566,8 +637,50 @@ function ToolbarButton({ active, label, onClick, title }: ToolbarButtonProps) {
       title={title}
       type="button"
     >
-      {label}
+      {icon}
+      <span className="sr-only">{title}</span>
     </button>
+  )
+}
+
+type ToolbarRangeProps = {
+  icon: ReactNode
+  label: string
+  max: number
+  min: number
+  onChange: (value: number) => void
+  step: number
+  value: number
+}
+
+function ToolbarRange({
+  icon,
+  label,
+  max,
+  min,
+  onChange,
+  step,
+  value,
+}: ToolbarRangeProps) {
+  return (
+    <label className="flex h-8 shrink-0 items-center gap-2 rounded-md border border-black/10 bg-black/[0.03] px-2 text-[11px] font-semibold text-black/70">
+      {icon}
+      <span className="sr-only">{label}</span>
+      <input
+        className="w-20 accent-black"
+        max={max}
+        min={min}
+        onMouseDown={(event) => event.stopPropagation()}
+        onChange={(event) => onChange(Number(event.target.value))}
+        step={step}
+        title={label}
+        type="range"
+        value={value}
+      />
+      <span className="w-8 text-right tabular-nums">
+        {Number.isInteger(value) ? value : value.toFixed(1)}
+      </span>
+    </label>
   )
 }
 
@@ -588,12 +701,29 @@ function textStyleClasses(style: NewsletterTextStyle | undefined) {
 }
 
 function textStyleInlineStyle(style: NewsletterTextStyle | undefined) {
-  if (!style?.color) {
+  if (!style) {
+    return undefined
+  }
+
+  if (
+    !style?.color &&
+    typeof style?.fontSize !== "number" &&
+    typeof style?.letterSpacing !== "number" &&
+    typeof style?.lineHeight !== "number"
+  ) {
     return undefined
   }
 
   return {
     color: style.color,
+    fontSize:
+      typeof style.fontSize === "number" ? `${style.fontSize}px` : undefined,
+    letterSpacing:
+      typeof style.letterSpacing === "number"
+        ? `${style.letterSpacing}px`
+        : undefined,
+    lineHeight:
+      typeof style.lineHeight === "number" ? style.lineHeight : undefined,
   }
 }
 
@@ -635,36 +765,8 @@ function renderRichTextSegment(segment: RichTextSegment, index: number) {
   )
 }
 
-function cycleValue<T extends string>(
-  current: T | undefined,
-  values: [T, ...T[]]
-) {
-  const index = current ? values.indexOf(current) : -1
-  return values[(index + 1) % values.length]
-}
-
-function lineHeightLabel(value: NewsletterTextStyle["lineHeight"]) {
-  if (value === "compact") {
-    return "LH-"
-  }
-
-  if (value === "loose") {
-    return "LH+"
-  }
-
-  return "LH"
-}
-
-function letterSpacingLabel(value: NewsletterTextStyle["letterSpacing"]) {
-  if (value === "wide") {
-    return "LS+"
-  }
-
-  if (value === "wider") {
-    return "LS++"
-  }
-
-  return "LS"
+function numericStyleValue(value: number | string | undefined, fallback: number) {
+  return typeof value === "number" ? value : fallback
 }
 
 function toTitleCase(value: string) {

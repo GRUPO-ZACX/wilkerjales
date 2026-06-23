@@ -26,31 +26,31 @@ export default async function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#F7F5EE] px-5 py-10 text-[#1F1F1A]">
+    <main className="min-h-screen bg-neutral-50 px-5 py-10 text-black">
       <section className="mx-auto grid min-h-[calc(100vh-5rem)] w-full max-w-[1120px] items-center gap-10 lg:grid-cols-[1fr_440px]">
         <div className="max-w-2xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[#244F49]">
+          <p className="text-sm font-semibold uppercase tracking-[0.22em] text-black/45">
             Informativo Jurídico Digital
           </p>
-          <h1 className="mt-4 font-serif text-5xl leading-tight tracking-tight text-[#1F1F1A] sm:text-6xl">
+          <h1 className="mt-4 text-5xl font-semibold leading-tight tracking-[-0.04em] text-black sm:text-6xl">
             Acesse seus informativos jurídicos.
           </h1>
-          <p className="mt-6 text-lg leading-8 text-[#404038]">
+          <p className="mt-6 text-lg leading-8 text-black/60">
             Edite, publique e mantenha o histórico dos informativos do
             escritório com layout institucional controlado.
           </p>
         </div>
 
-        <div className="border border-[#B7B783] bg-white/85 p-6 shadow-[0_18px_55px_rgba(22,59,53,0.10)]">
-          <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[#163B35]">
+        <div className="rounded-2xl border border-black/10 bg-white p-6 shadow-[0_18px_55px_rgba(0,0,0,0.08)]">
+          <h2 className="text-2xl font-semibold tracking-[-0.02em] text-black">
             Entrar no dashboard
           </h2>
-          <p className="mt-2 text-sm leading-6 text-[#6D714C]">
+          <p className="mt-2 text-sm leading-6 text-black/55">
             Use e-mail e senha cadastrados no Supabase Auth.
           </p>
 
           {!isConfigured && (
-            <p className="mt-5 border border-[#B7B783]/70 bg-[#F7F5EE] p-3 text-sm leading-6 text-[#244F49]">
+            <p className="mt-5 rounded-xl border border-black/10 bg-neutral-50 p-3 text-sm leading-6 text-black/65">
               Configure `NEXT_PUBLIC_SUPABASE_URL` e
               `NEXT_PUBLIC_SUPABASE_ANON_KEY` para ativar login e persistência.
             </p>

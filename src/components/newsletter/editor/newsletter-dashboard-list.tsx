@@ -2,12 +2,13 @@
 
 import Link from "next/link"
 import { useMemo, useState } from "react"
-import { ExternalLink, LayoutGrid, List, Search } from "lucide-react"
+import { Copy, ExternalLink, LayoutGrid, List, Search } from "lucide-react"
 
 import { Badge } from "yes@/components/ui/badge"
 import { Button } from "yes@/components/ui/button"
 import type { NewsletterRow } from "yes@/lib/supabase/database.types"
 import {
+  duplicateNewsletterFromListAction,
   publishNewsletterFromListAction,
   unpublishNewsletterFromListAction,
 } from "yes@/app/dashboard/informativos/actions"
@@ -220,6 +221,19 @@ function NewsletterItem({ newsletter, viewMode }: NewsletterItemProps) {
             </Button>
           </form>
         )}
+
+        <form action={duplicateNewsletterFromListAction}>
+          <input name="id" type="hidden" value={newsletter.id} />
+          <Button
+            className="border-black/10 bg-white text-black hover:bg-black/5"
+            size="sm"
+            type="submit"
+            variant="outline"
+          >
+            <Copy />
+            Duplicar
+          </Button>
+        </form>
       </div>
     </article>
   )

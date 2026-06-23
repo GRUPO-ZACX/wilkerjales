@@ -125,6 +125,7 @@ export const defaultNewsletterTemplate: NewsletterTemplate = {
     label: "Falar com o escritório",
     href: "mailto:contato@jalesjales.adv.br",
   },
+  customSections: [],
   sourceTitle: "",
   sourceDescription:
     "Informativo baseado em entendimento do Superior Tribunal de Justiça sobre natureza da cota condominial, encargos moratórios e tratamento de unidade ocupada por órgão público.",

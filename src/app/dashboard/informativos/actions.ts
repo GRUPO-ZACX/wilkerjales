@@ -1,8 +1,12 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { redirect } from "next/navigation"
 
-import { prepareNewsletterForPersistence } from "yes@/lib/newsletter/normalize"
+import {
+  normalizeNewsletterTemplate,
+  prepareNewsletterForPersistence,
+} from "yes@/lib/newsletter/normalize"
 import { slugifyTitle } from "yes@/lib/newsletter/slug"
 import type { NewsletterTemplate } from "yes@/lib/newsletter/types"
 import type { Json, NewsletterStatus } from "yes@/lib/supabase/database.types"
@@ -229,6 +233,34 @@ export async function publishNewsletterFromListAction(formData: FormData) {
 
   revalidatePath("/dashboard/informativos")
   revalidatePath("/informativo/[slug]", "page")
+}
+
+export async function duplicateNewsletterFromListAction(formData: FormData) {
+  const id = String(formData.get("id") ?? "")
+  const { error, supabase } = await requireAuthenticatedClient()
+
+  if (!id || error || !supabase) {
+    return
+  }
+
+  const { data } = await supabase
+    .from("newsletters")
+    .select("content")
+    .eq("id", id)
+    .single()
+
+  if (!data) {
+    return
+  }
+
+  const newsletter = normalizeNewsletterTemplate(data.content)
+  const result = await insertNewsletterWithUniqueSlug(newsletter)
+
+  if (result.redirectTo) {
+    redirect(result.redirectTo)
+  }
+
+  revalidatePath("/dashboard/informativos")
 }
 
 export async function unpublishNewsletterFromListAction(formData: FormData) {

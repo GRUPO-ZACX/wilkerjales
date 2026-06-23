@@ -2,6 +2,7 @@ import { defaultNewsletterTemplate } from "./default-template"
 import { normalizeNewsletterSections } from "./sections"
 import type {
   NewsletterContact,
+  NewsletterCustomSection,
   NewsletterNumberedCard,
   NewsletterSection,
   NewsletterSectionType,
@@ -126,6 +127,9 @@ function normalizeSections(value: unknown): NewsletterSection[] | undefined {
     "body",
     "syndic",
     "cta",
+    "custom-text",
+    "custom-image",
+    "custom-button",
   ])
 
   return value.filter(isRecord).flatMap((section, index) => {
@@ -140,6 +144,7 @@ function normalizeSections(value: unknown): NewsletterSection[] | undefined {
 
     return [
       {
+        hidden: section.hidden === true,
         id: stringOrFallback(section.id, `section-${type}`),
         order: typeof section.order === "number" ? section.order : index,
         type: type as NewsletterSectionType,
@@ -178,6 +183,10 @@ function normalizeTextStyles(value: unknown) {
       style.color = rawStyle.color
     }
 
+    if (typeof rawStyle.fontSize === "number") {
+      style.fontSize = clamp(rawStyle.fontSize, 10, 96)
+    }
+
     if (rawStyle.fontFamily === "sans" || rawStyle.fontFamily === "serif") {
       style.fontFamily = rawStyle.fontFamily
     }
@@ -190,12 +199,20 @@ function normalizeTextStyles(value: unknown) {
       style.letterSpacing = rawStyle.letterSpacing
     }
 
+    if (typeof rawStyle.letterSpacing === "number") {
+      style.letterSpacing = clamp(rawStyle.letterSpacing, -1, 6)
+    }
+
     if (
       rawStyle.lineHeight === "compact" ||
       rawStyle.lineHeight === "normal" ||
       rawStyle.lineHeight === "loose"
     ) {
       style.lineHeight = rawStyle.lineHeight
+    }
+
+    if (typeof rawStyle.lineHeight === "number") {
+      style.lineHeight = clamp(rawStyle.lineHeight, 0.8, 2.4)
     }
 
     if (Object.keys(style).length > 0) {
@@ -215,6 +232,62 @@ function normalizeTheme(value: unknown) {
     background: optionalString(value.background),
     text: optionalString(value.text),
   }
+}
+
+function normalizeCustomSections(value: unknown): NewsletterCustomSection[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  const sections: NewsletterCustomSection[] = []
+
+  value.filter(isRecord).forEach((section, index) => {
+    const id = stringOrFallback(section.id, `custom-section-${index + 1}`)
+
+    if (section.type === "custom-text") {
+      sections.push(
+        {
+          body: normalizeIntro(section.body, [{ text: "" }]),
+          id,
+          title: stringOrFallback(section.title, ""),
+          type: "custom-text" as const,
+        }
+      )
+      return
+    }
+
+    if (section.type === "custom-image") {
+      sections.push(
+        {
+          caption: stringOrFallback(section.caption, ""),
+          id,
+          imageAlt: optionalString(section.imageAlt),
+          imageUrl: optionalString(section.imageUrl),
+          type: "custom-image" as const,
+        }
+      )
+      return
+    }
+
+    if (section.type === "custom-button") {
+      sections.push(
+        {
+          description: stringOrFallback(section.description, ""),
+          href: stringOrFallback(section.href, "#"),
+          id,
+          label: stringOrFallback(section.label, "Abrir link"),
+          title: stringOrFallback(section.title, ""),
+          type: "custom-button" as const,
+        }
+      )
+    }
+  })
+
+  return sections
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value))
 }
 
 export function normalizeNewsletterTemplate(value: unknown): NewsletterTemplate {
@@ -278,6 +351,7 @@ export function normalizeNewsletterTemplate(value: unknown): NewsletterTemplate 
       label: stringOrFallback(cta.label, fallback.cta.label),
       title: stringOrFallback(cta.title, fallback.cta.title),
     },
+    customSections: normalizeCustomSections(value.customSections),
     sourceTitle: stringOrFallback(value.sourceTitle, ""),
     sourceDescription: stringOrFallback(
       value.sourceDescription,
@@ -301,6 +375,18 @@ export function prepareNewsletterForPersistence(value: NewsletterTemplate) {
     newsletter.firm.logoUrl = undefined
     newsletter.firm.logoAlt = undefined
   }
+
+  newsletter.customSections = newsletter.customSections?.map((section) => {
+    if (section.type === "custom-image" && section.imageUrl?.startsWith("blob:")) {
+      return {
+        ...section,
+        imageAlt: undefined,
+        imageUrl: undefined,
+      }
+    }
+
+    return section
+  })
 
   return JSON.parse(JSON.stringify(newsletter)) as NewsletterTemplate
 }

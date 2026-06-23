@@ -22,7 +22,7 @@ export function LogoutButton() {
 
   return (
     <Button
-      className="border-[#B7B783] bg-[#F7F5EE]/70 text-[#163B35] hover:bg-[#F7F5EE]"
+      className="border-black/10 bg-white text-black hover:bg-black/5"
       onClick={logout}
       size="sm"
       type="button"

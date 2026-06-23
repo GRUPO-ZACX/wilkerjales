@@ -36,9 +36,25 @@ export const newsletterSectionMeta: Record<
     label: "Chamada para atendimento",
     description: "Bloco final com convite para falar com o escritório.",
   },
+  "custom-text": {
+    label: "Texto livre",
+    description: "Seção editorial simples com título e texto.",
+  },
+  "custom-image": {
+    label: "Imagem",
+    description: "Espaço visual com legenda opcional.",
+  },
+  "custom-button": {
+    label: "Botão",
+    description: "Chamada independente com link.",
+  },
 }
 
 const knownSectionTypes = new Set<NewsletterSectionType>(
+  Object.keys(newsletterSectionMeta) as NewsletterSectionType[]
+)
+
+const baseSectionTypes = new Set<NewsletterSectionType>(
   defaultNewsletterSections.map((section) => section.type)
 )
 
@@ -46,15 +62,27 @@ export function normalizeNewsletterSections(
   sections: NewsletterSection[] | undefined
 ) {
   const byType = new Map<NewsletterSectionType, NewsletterSection>()
+  const customSections: NewsletterSection[] = []
 
   sections
     ?.filter((section) => knownSectionTypes.has(section.type))
     .forEach((section, index) => {
+      if (!baseSectionTypes.has(section.type)) {
+        customSections.push({
+          hidden: section.hidden === true,
+          id: section.id || `section-${section.type}-${index}`,
+          type: section.type,
+          order: Number.isFinite(section.order) ? section.order : index,
+        })
+        return
+      }
+
       if (byType.has(section.type)) {
         return
       }
 
       byType.set(section.type, {
+        hidden: section.hidden === true,
         id: section.id || `section-${section.type}`,
         type: section.type,
         order: Number.isFinite(section.order) ? section.order : index,
@@ -68,6 +96,7 @@ export function normalizeNewsletterSections(
   })
 
   return Array.from(byType.values())
+    .concat(customSections)
     .sort((current, next) => current.order - next.order)
     .map((section, index) => ({ ...section, order: index }))
 }

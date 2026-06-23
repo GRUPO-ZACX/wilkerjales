@@ -254,7 +254,7 @@ export function NewsletterEditor({
   const isEditing = previewMode === "edit"
 
   return (
-    <main className="min-h-screen bg-[#F7F5EE] text-[#1F1F1A]">
+    <main className="min-h-screen bg-neutral-50 text-black">
       <header className="sticky top-0 z-50 border-b border-black/10 bg-white/95 px-4 py-3 text-black backdrop-blur sm:px-6 lg:px-8">
         <div className="mx-auto flex w-full max-w-[1520px] flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex min-w-0 items-center gap-3">

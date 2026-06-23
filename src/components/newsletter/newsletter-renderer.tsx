@@ -1,5 +1,6 @@
 import type {
   NewsletterMode,
+  NewsletterSection,
   NewsletterSectionType,
   NewsletterTemplate,
 } from "yes@/lib/newsletter/types"
@@ -9,6 +10,7 @@ import { cn } from "yes@/lib/utils"
 import { DownloadFloatingButton } from "./download-floating-button"
 import { NewsletterBody } from "./newsletter-body"
 import { NewsletterCta } from "./newsletter-cta"
+import { NewsletterCustomSection } from "./newsletter-custom-section"
 import { NewsletterDecisionBox } from "./newsletter-decision-box"
 import { NewsletterFooter } from "./newsletter-footer"
 import { NewsletterHeader } from "./newsletter-header"
@@ -30,7 +32,9 @@ export function NewsletterRenderer({
   const isPrint = mode === "print"
   const bannerText =
     newsletter.banner.trim() || "INFORMATIVO CONDOMINIAL · EDIÇÃO EM RASCUNHO"
-  const sections = getNewsletterSections(newsletter)
+  const sections = getNewsletterSections(newsletter).filter(
+    (section) => !section.hidden
+  )
   const theme = newsletter.theme ?? {}
 
   return (
@@ -64,6 +68,7 @@ export function NewsletterRenderer({
               <NewsletterContentSection
                 key={section.id}
                 newsletter={newsletter}
+                section={section}
                 type={section.type}
               />
             ))}
@@ -82,11 +87,13 @@ export function NewsletterRenderer({
 
 type NewsletterContentSectionProps = {
   newsletter: NewsletterTemplate
+  section: NewsletterSection
   type: NewsletterSectionType
 }
 
 function NewsletterContentSection({
   newsletter,
+  section,
   type,
 }: NewsletterContentSectionProps) {
   if (type === "hero") {
@@ -107,6 +114,19 @@ function NewsletterContentSection({
 
   if (type === "cta") {
     return <NewsletterCta newsletter={newsletter} />
+  }
+
+  if (type.startsWith("custom-")) {
+    const customSection = newsletter.customSections?.find(
+      (item) => item.id === section.id
+    )
+
+    return customSection ? (
+      <NewsletterCustomSection
+        customSection={customSection}
+        newsletter={newsletter}
+      />
+    ) : null
   }
 
   return null

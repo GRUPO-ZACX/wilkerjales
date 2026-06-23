@@ -73,22 +73,22 @@ export function LoginForm({ isConfigured }: LoginFormProps) {
 
   return (
     <div className="grid gap-4">
-      <label className="grid gap-1.5 text-sm font-semibold text-[#244F49]">
+      <label className="grid gap-1.5 text-sm font-semibold text-black">
         E-mail
         <Input
           autoComplete="email"
-          className="border-[#B7B783] bg-[#F7F5EE]"
+          className="border-black/10 bg-neutral-50"
           onChange={(event) => setEmail(event.target.value)}
           placeholder="advogado@escritorio.adv.br"
           type="email"
           value={email}
         />
       </label>
-      <label className="grid gap-1.5 text-sm font-semibold text-[#244F49]">
+      <label className="grid gap-1.5 text-sm font-semibold text-black">
         Senha
         <Input
           autoComplete="current-password"
-          className="border-[#B7B783] bg-[#F7F5EE]"
+          className="border-black/10 bg-neutral-50"
           onChange={(event) => setPassword(event.target.value)}
           placeholder="Sua senha"
           type="password"
@@ -97,14 +97,14 @@ export function LoginForm({ isConfigured }: LoginFormProps) {
       </label>
 
       {message && (
-        <p className="border border-[#B7B783]/70 bg-[#F7F5EE] p-3 text-sm leading-6 text-[#244F49]">
+        <p className="rounded-xl border border-black/10 bg-neutral-50 p-3 text-sm leading-6 text-black/65">
           {message}
         </p>
       )}
 
       <div className="flex flex-wrap gap-2">
         <Button
-          className="bg-[#163B35] text-[#F7F5EE] hover:bg-[#244F49]"
+          className="bg-black text-white hover:bg-black/80"
           disabled={isLoading}
           onClick={signIn}
           type="button"
@@ -112,7 +112,7 @@ export function LoginForm({ isConfigured }: LoginFormProps) {
           {isLoading ? "Entrando..." : "Entrar"}
         </Button>
         <Button
-          className="border-[#B7B783] bg-[#F7F5EE] text-[#163B35] hover:bg-[#ECE8D8]"
+          className="border-black/10 bg-white text-black hover:bg-black/5"
           disabled={isLoading}
           onClick={signUp}
           type="button"

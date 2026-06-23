@@ -28,8 +28,9 @@ export type NewsletterTextStyle = {
   bold?: boolean
   color?: string
   fontFamily?: "sans" | "serif"
-  letterSpacing?: "normal" | "wide" | "wider"
-  lineHeight?: "compact" | "normal" | "loose"
+  fontSize?: number
+  letterSpacing?: "normal" | "wide" | "wider" | number
+  lineHeight?: "compact" | "normal" | "loose" | number
 }
 
 export type NewsletterTheme = {
@@ -76,14 +77,47 @@ export type NewsletterContact = {
   href: string
 }
 
+export type NewsletterCustomTextSection = {
+  id: string
+  type: "custom-text"
+  title: string
+  body: RichTextSegment[]
+}
+
+export type NewsletterCustomImageSection = {
+  id: string
+  type: "custom-image"
+  imageAlt?: string
+  imageUrl?: string
+  caption: string
+}
+
+export type NewsletterCustomButtonSection = {
+  id: string
+  type: "custom-button"
+  title: string
+  description: string
+  label: string
+  href: string
+}
+
+export type NewsletterCustomSection =
+  | NewsletterCustomTextSection
+  | NewsletterCustomImageSection
+  | NewsletterCustomButtonSection
+
 export type NewsletterSectionType =
   | "hero"
   | "decision"
   | "body"
   | "syndic"
   | "cta"
+  | "custom-text"
+  | "custom-image"
+  | "custom-button"
 
 export type NewsletterSection = {
+  hidden?: boolean
   id: string
   type: NewsletterSectionType
   order: number
@@ -109,6 +143,7 @@ export type NewsletterTemplate = {
   bodyBlocks: NewsletterTextBlock[]
   attorney: NewsletterAttorney
   cta: NewsletterCta
+  customSections?: NewsletterCustomSection[]
   sourceTitle: string
   sourceDescription: string
   address: string
