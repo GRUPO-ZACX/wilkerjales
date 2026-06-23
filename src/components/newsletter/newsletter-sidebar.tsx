@@ -63,7 +63,7 @@ export function NewsletterSidebar({
         </dl>
       </section>
 
-      <AttorneyCard attorney={newsletter.attorney} />
+      <AttorneyCard newsletter={newsletter} />
       <NewsletterSource newsletter={newsletter} />
     </aside>
   )

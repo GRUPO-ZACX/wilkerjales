@@ -31,6 +31,7 @@ export function NewsletterRenderer({
   const bannerText =
     newsletter.banner.trim() || "INFORMATIVO CONDOMINIAL · EDIÇÃO EM RASCUNHO"
   const sections = getNewsletterSections(newsletter)
+  const theme = newsletter.theme ?? {}
 
   return (
     <main
@@ -38,6 +39,10 @@ export function NewsletterRenderer({
         "min-h-screen bg-[#F7F5EE] text-[#1F1F1A]",
         isPrint ? "py-0" : "py-0"
       )}
+      style={{
+        backgroundColor: theme.background,
+        color: theme.text,
+      }}
     >
       <NewsletterHeader newsletter={newsletter} />
       <div className="border-y border-[#B7B783]/45 bg-[#244F49] px-5 py-3.5 text-[10px] font-semibold uppercase tracking-[0.28em] text-[#F7F5EE] sm:text-[11px]">
@@ -93,7 +98,7 @@ function NewsletterContentSection({
   }
 
   if (type === "body") {
-    return <NewsletterBody blocks={newsletter.bodyBlocks} />
+    return <NewsletterBody blocks={newsletter.bodyBlocks} newsletter={newsletter} />
   }
 
   if (type === "syndic") {
@@ -101,7 +106,7 @@ function NewsletterContentSection({
   }
 
   if (type === "cta") {
-    return <NewsletterCta cta={newsletter.cta} />
+    return <NewsletterCta newsletter={newsletter} />
   }
 
   return null

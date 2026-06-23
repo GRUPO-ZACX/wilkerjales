@@ -3,6 +3,10 @@ export type NewsletterMode = "public" | "edit" | "print"
 export type RichTextSegment = {
   text: string
   bold?: boolean
+  color?: string
+  href?: string
+  italic?: boolean
+  underline?: boolean
 }
 
 export type NewsletterHeader = {
@@ -22,9 +26,15 @@ export type NewsletterFirm = {
 export type NewsletterTextStyle = {
   align?: "left" | "center" | "right"
   bold?: boolean
+  color?: string
   fontFamily?: "sans" | "serif"
   letterSpacing?: "normal" | "wide" | "wider"
   lineHeight?: "compact" | "normal" | "loose"
+}
+
+export type NewsletterTheme = {
+  background?: string
+  text?: string
 }
 
 export type NewsletterTopic = {
@@ -83,6 +93,7 @@ export type NewsletterTemplate = {
   id: string
   slug: string
   sections?: NewsletterSection[]
+  theme?: NewsletterTheme
   textStyles?: Record<string, NewsletterTextStyle>
   header: NewsletterHeader
   firm: NewsletterFirm

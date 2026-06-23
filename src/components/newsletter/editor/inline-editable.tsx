@@ -7,6 +7,13 @@ import {
   useState,
   type ElementType,
 } from "react"
+import Color from "@tiptap/extension-color"
+import Link from "@tiptap/extension-link"
+import TextAlign from "@tiptap/extension-text-align"
+import { TextStyle } from "@tiptap/extension-text-style"
+import Underline from "@tiptap/extension-underline"
+import { EditorContent, useEditor, type Editor } from "@tiptap/react"
+import StarterKit from "@tiptap/starter-kit"
 
 import type {
   NewsletterTextStyle,
@@ -84,6 +91,7 @@ export function InlineText({
           className,
           textStyleClassName
         )}
+        style={textStyleInlineStyle(textStyle)}
       >
         {displayValue}
       </StaticTag>
@@ -121,6 +129,7 @@ export function InlineText({
         }}
         placeholder={placeholder}
         rows={1}
+        style={textStyleInlineStyle(textStyle)}
         value={value}
       />
     </span>
@@ -148,49 +157,76 @@ export function InlineRichText({
   segments,
   textStyle,
 }: InlineRichTextProps) {
-  const editorRef = useRef<HTMLParagraphElement>(null)
   const [isFocused, setIsFocused] = useState(false)
-  const html = segmentsToHtml(segments)
   const isEmpty = segments.every((segment) => !segment.text.trim())
   const textStyleClassName = textStyleClasses(textStyle)
+  const editor = useEditor(
+    {
+      content: segmentsToHtml(segments),
+      editorProps: {
+        attributes: {
+          "aria-label": ariaLabel,
+          class: cn(
+            "min-h-[1.5em] rounded-[2px] border border-transparent outline-none transition-[border-color] empty:before:text-[#8A8A76] focus:border-[#B7B783]/80 focus:bg-transparent [&_a]:font-semibold [&_a]:text-[#244F49] [&_a]:underline [&_a]:decoration-[#B7B783] [&_a]:underline-offset-4 [&_p]:m-0",
+            className,
+            textStyleClassName
+          ),
+          role: "textbox",
+        },
+      },
+      extensions: [
+        StarterKit.configure({
+          blockquote: false,
+          bulletList: false,
+          code: false,
+          codeBlock: false,
+          hardBreak: false,
+          heading: false,
+          horizontalRule: false,
+          listItem: false,
+          orderedList: false,
+          strike: false,
+        }),
+        TextStyle,
+        Color,
+        Underline,
+        TextAlign.configure({
+          types: ["paragraph"],
+        }),
+        Link.configure({
+          autolink: true,
+          defaultProtocol: "https",
+          HTMLAttributes: {
+            rel: "noopener noreferrer",
+            target: "_blank",
+          },
+          linkOnPaste: true,
+          openOnClick: false,
+        }),
+      ],
+      immediatelyRender: false,
+      onBlur: () => setIsFocused(false),
+      onFocus: () => setIsFocused(true),
+      onUpdate: ({ editor }) => {
+        onChange(htmlToSegments(editor.getHTML()))
+      },
+    },
+    []
+  )
 
   useEffect(() => {
-    const editor = editorRef.current
-
-    if (!editor || isFocused || editor.innerHTML === html) {
+    if (!editor || isFocused) {
       return
     }
 
-    editor.innerHTML = html
-  }, [html, isFocused])
+    const nextHtml = segmentsToHtml(segments)
 
-  function emitChange() {
-    const editor = editorRef.current
-
-    if (!editor) {
+    if (editor.getHTML() === nextHtml) {
       return
     }
 
-    const nextSegments = parseRichText(editor)
-    onChange(nextSegments.length > 0 ? nextSegments : [{ text: "" }])
-  }
-
-  function runCommand(command: "bold") {
-    document.execCommand(command)
-    emitChange()
-  }
-
-  function transformAll(transform: "upper" | "lower") {
-    const plainText = segments.map((segment) => segment.text).join("")
-    onChange([
-      {
-        text:
-          transform === "upper"
-            ? plainText.toUpperCase()
-            : plainText.toLowerCase(),
-      },
-    ])
-  }
+    editor.commands.setContent(nextHtml)
+  }, [editor, isFocused, segments])
 
   function updateTextStyle(nextStyle: NewsletterTextStyle) {
     onTextStyleChange?.({
@@ -207,29 +243,27 @@ export function InlineRichText({
           className,
           textStyleClassName
         )}
+        style={textStyleInlineStyle(textStyle)}
       >
         {isEmpty
           ? placeholder
           : segments.map((segment, index) =>
-              segment.bold ? (
-                <strong key={`${segment.text}-${index}`}>{segment.text}</strong>
-              ) : (
-                <span key={`${segment.text}-${index}`}>{segment.text}</span>
-              )
+              renderRichTextSegment(segment, index)
             )}
       </p>
     )
   }
 
   return (
-    <span className="relative block min-w-0">
-      {isFocused && (
-        <TextToolbar
+    <span
+      className="relative block min-w-0"
+      style={textStyleInlineStyle(textStyle)}
+    >
+      {isFocused && editor && (
+        <RichTextToolbar
+          editor={editor}
           textStyle={textStyle}
-          onBold={() => runCommand("bold")}
           onChange={onTextStyleChange ? updateTextStyle : undefined}
-          onLower={() => transformAll("lower")}
-          onUpper={() => transformAll("upper")}
         />
       )}
 
@@ -239,22 +273,7 @@ export function InlineRichText({
         </span>
       )}
 
-      <p
-        ref={editorRef}
-        aria-label={ariaLabel}
-        className={cn(
-          "min-h-[1.5em] rounded-[2px] border border-transparent outline-none transition-[border-color] empty:before:text-[#8A8A76] focus:border-[#B7B783]/80 focus:bg-transparent [&_strong]:font-bold",
-          className,
-          textStyleClassName
-        )}
-        contentEditable
-        dangerouslySetInnerHTML={{ __html: html }}
-        onBlur={() => setIsFocused(false)}
-        onFocus={() => setIsFocused(true)}
-        onInput={emitChange}
-        role="textbox"
-        suppressContentEditableWarning
-      />
+      <EditorContent editor={editor} />
     </span>
   )
 }
@@ -344,6 +363,185 @@ function TextToolbar({
         <ToolbarButton label="Aa" title="Título" onClick={onTitle} />
       )}
       <ToolbarButton label="aa" title="Minúsculas" onClick={onLower} />
+      {onChange && (
+        <span className="flex items-center gap-1 border-l border-black/10 pl-1">
+          {richTextColors.map((color) => (
+            <button
+              key={color.value}
+              className={cn(
+                "size-6 rounded-full border border-black/15",
+                textStyle?.color === color.value &&
+                  "ring-2 ring-black ring-offset-1"
+              )}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => onChange({ color: color.value })}
+              style={{ backgroundColor: color.value }}
+              title={`Cor: ${color.label}`}
+              type="button"
+            />
+          ))}
+        </span>
+      )}
+    </span>
+  )
+}
+
+type RichTextToolbarProps = {
+  editor: Editor
+  onChange?: (style: NewsletterTextStyle) => void
+  textStyle?: NewsletterTextStyle
+}
+
+const richTextColors = [
+  { label: "Texto", value: "#1F1F1A" },
+  { label: "Verde", value: "#244F49" },
+  { label: "Oliva", value: "#6D714C" },
+  { label: "Dourado", value: "#B7B783" },
+]
+
+function RichTextToolbar({ editor, onChange, textStyle }: RichTextToolbarProps) {
+  const [isLinkOpen, setIsLinkOpen] = useState(false)
+  const [linkValue, setLinkValue] = useState("")
+  const nextLineHeight = cycleValue(textStyle?.lineHeight, [
+    "compact",
+    "normal",
+    "loose",
+  ])
+  const nextLetterSpacing = cycleValue(textStyle?.letterSpacing, [
+    "normal",
+    "wide",
+    "wider",
+  ])
+
+  function openLinkEditor() {
+    setLinkValue(editor.getAttributes("link").href ?? "")
+    setIsLinkOpen((current) => !current)
+  }
+
+  function applyLink() {
+    const href = linkValue.trim()
+
+    if (!href) {
+      editor.chain().focus().unsetLink().run()
+      setIsLinkOpen(false)
+      return
+    }
+
+    editor
+      .chain()
+      .focus()
+      .extendMarkRange("link")
+      .setLink({ href })
+      .run()
+    setIsLinkOpen(false)
+  }
+
+  return (
+    <span className="absolute -top-12 left-0 z-30 flex max-w-[min(760px,calc(100vw-32px))] items-center gap-1 rounded-lg border border-black/10 bg-white p-1 text-black shadow-[0_12px_34px_rgba(0,0,0,0.12)]">
+      <ToolbarButton
+        active={editor.isActive("bold")}
+        label="B"
+        title="Negrito"
+        onClick={() => editor.chain().focus().toggleBold().run()}
+      />
+      <ToolbarButton
+        active={editor.isActive("italic")}
+        label="I"
+        title="Itálico"
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+      />
+      <ToolbarButton
+        active={editor.isActive("underline")}
+        label="U"
+        title="Sublinhado"
+        onClick={() => editor.chain().focus().toggleUnderline().run()}
+      />
+      <ToolbarButton
+        active={editor.isActive("link")}
+        label="Link"
+        title="Editar link"
+        onClick={openLinkEditor}
+      />
+      <ToolbarButton
+        label={lineHeightLabel(textStyle?.lineHeight)}
+        title="Entrelinha"
+        onClick={() => onChange?.({ lineHeight: nextLineHeight })}
+      />
+      <ToolbarButton
+        label={letterSpacingLabel(textStyle?.letterSpacing)}
+        title="Entre letras"
+        onClick={() => onChange?.({ letterSpacing: nextLetterSpacing })}
+      />
+      <ToolbarButton
+        active={textStyle?.fontFamily === "serif"}
+        label="Serif"
+        title="Fonte serifada"
+        onClick={() =>
+          onChange?.({
+            fontFamily: textStyle?.fontFamily === "serif" ? "sans" : "serif",
+          })
+        }
+      />
+      <ToolbarButton
+        active={textStyle?.align === "left" || !textStyle?.align}
+        label="E"
+        title="Alinhar à esquerda"
+        onClick={() => onChange?.({ align: "left" })}
+      />
+      <ToolbarButton
+        active={textStyle?.align === "center"}
+        label="C"
+        title="Centralizar"
+        onClick={() => onChange?.({ align: "center" })}
+      />
+      <ToolbarButton
+        active={textStyle?.align === "right"}
+        label="D"
+        title="Alinhar à direita"
+        onClick={() => onChange?.({ align: "right" })}
+      />
+      <span className="flex items-center gap-1 border-l border-black/10 pl-1">
+        {richTextColors.map((color) => (
+          <button
+            key={color.value}
+            className={cn(
+              "size-6 rounded-full border border-black/15",
+              editor.isActive("textStyle", { color: color.value }) &&
+                "ring-2 ring-black ring-offset-1"
+            )}
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => editor.chain().focus().setColor(color.value).run()}
+            style={{ backgroundColor: color.value }}
+            title={color.label}
+            type="button"
+          />
+        ))}
+      </span>
+
+      {isLinkOpen && (
+        <span className="absolute left-0 top-11 z-40 flex w-[min(360px,calc(100vw-32px))] items-center gap-2 rounded-lg border border-black/10 bg-white p-2 shadow-[0_16px_42px_rgba(0,0,0,0.14)]">
+          <input
+            className="h-8 min-w-0 flex-1 rounded-md border border-black/15 px-2 text-xs outline-none focus:border-black/45"
+            placeholder="https://..."
+            value={linkValue}
+            onChange={(event) => setLinkValue(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault()
+                applyLink()
+              }
+            }}
+          />
+          <button
+            className="h-8 rounded-md bg-black px-3 text-xs font-semibold text-white"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={applyLink}
+            type="button"
+          >
+            OK
+          </button>
+        </span>
+      )}
     </span>
   )
 }
@@ -386,6 +584,54 @@ function textStyleClasses(style: NewsletterTextStyle | undefined) {
     style?.align === "center" && "text-center",
     style?.align === "right" && "text-right",
     style?.align === "left" && "text-left"
+  )
+}
+
+function textStyleInlineStyle(style: NewsletterTextStyle | undefined) {
+  if (!style?.color) {
+    return undefined
+  }
+
+  return {
+    color: style.color,
+  }
+}
+
+function renderRichTextSegment(segment: RichTextSegment, index: number) {
+  let content = <>{segment.text}</>
+
+  if (segment.bold) {
+    content = <strong>{content}</strong>
+  }
+
+  if (segment.italic) {
+    content = <em>{content}</em>
+  }
+
+  if (segment.underline) {
+    content = <u>{content}</u>
+  }
+
+  if (segment.href) {
+    content = (
+      <a
+        className="font-semibold text-[#244F49] underline decoration-[#B7B783] underline-offset-4"
+        href={segment.href}
+        rel="noopener noreferrer"
+        target="_blank"
+      >
+        {content}
+      </a>
+    )
+  }
+
+  return (
+    <span
+      key={`${segment.text}-${index}`}
+      style={segment.color ? { color: segment.color } : undefined}
+    >
+      {content}
+    </span>
   )
 }
 
@@ -437,35 +683,76 @@ function escapeHtml(value: string) {
 }
 
 function segmentsToHtml(segments: RichTextSegment[]) {
-  return segments
+  const content = segments
     .map((segment) => {
-      const text = escapeHtml(segment.text)
-      return segment.bold ? `<strong>${text}</strong>` : text
+      let text = escapeHtml(segment.text)
+
+      if (segment.bold) {
+        text = `<strong>${text}</strong>`
+      }
+
+      if (segment.italic) {
+        text = `<em>${text}</em>`
+      }
+
+      if (segment.underline) {
+        text = `<u>${text}</u>`
+      }
+
+      if (segment.color) {
+        text = `<span style="color: ${escapeHtml(segment.color)}">${text}</span>`
+      }
+
+      if (segment.href) {
+        text = `<a href="${escapeHtml(segment.href)}">${text}</a>`
+      }
+
+      return text
     })
     .join("")
+
+  return `<p>${content}</p>`
 }
 
-function parseRichText(root: HTMLElement) {
+function htmlToSegments(html: string) {
+  if (typeof window === "undefined") {
+    return [{ text: stripTags(html) }]
+  }
+
+  const template = document.createElement("template")
+  template.innerHTML = html
+
+  return parseRichText(template.content)
+}
+
+function parseRichText(root: ParentNode) {
   const segments: RichTextSegment[] = []
 
-  function pushText(text: string, bold: boolean) {
+  function pushText(text: string, style: Omit<RichTextSegment, "text">) {
     if (!text) {
       return
     }
 
     const previous = segments.at(-1)
 
-    if (previous && Boolean(previous.bold) === bold) {
+    if (
+      previous &&
+      Boolean(previous.bold) === Boolean(style.bold) &&
+      Boolean(previous.italic) === Boolean(style.italic) &&
+      Boolean(previous.underline) === Boolean(style.underline) &&
+      previous.href === style.href &&
+      previous.color === style.color
+    ) {
       previous.text += text
       return
     }
 
-    segments.push({ bold: bold || undefined, text })
+    segments.push({ ...style, text })
   }
 
-  function walk(node: Node, bold: boolean) {
+  function walk(node: Node, style: Omit<RichTextSegment, "text">) {
     if (node.nodeType === Node.TEXT_NODE) {
-      pushText(node.textContent ?? "", bold)
+      pushText(node.textContent ?? "", style)
       return
     }
 
@@ -474,17 +761,33 @@ function parseRichText(root: HTMLElement) {
     }
 
     const element = node as HTMLElement
-    const nextBold =
-      bold ||
-      element.tagName === "B" ||
-      element.tagName === "STRONG" ||
-      element.style.fontWeight === "bold" ||
-      Number(element.style.fontWeight) >= 600
+    const nextStyle = {
+      ...style,
+      bold:
+        style.bold ||
+        element.tagName === "B" ||
+        element.tagName === "STRONG" ||
+        element.style.fontWeight === "bold" ||
+        Number(element.style.fontWeight) >= 600 ||
+        undefined,
+      color: element.style.color || style.color,
+      href: element.tagName === "A" ? element.getAttribute("href") || undefined : style.href,
+      italic: style.italic || element.tagName === "EM" || element.tagName === "I" || undefined,
+      underline:
+        style.underline ||
+        element.tagName === "U" ||
+        element.style.textDecorationLine.includes("underline") ||
+        undefined,
+    }
 
-    element.childNodes.forEach((child) => walk(child, nextBold))
+    element.childNodes.forEach((child) => walk(child, nextStyle))
   }
 
-  root.childNodes.forEach((child) => walk(child, false))
+  root.childNodes.forEach((child) => walk(child, {}))
 
-  return segments
+  return segments.length > 0 ? segments : [{ text: "" }]
+}
+
+function stripTags(html: string) {
+  return html.replace(/<[^>]*>/g, "")
 }

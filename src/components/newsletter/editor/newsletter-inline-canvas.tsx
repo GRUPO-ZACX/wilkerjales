@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import type { ChangeEvent, ReactNode } from "react"
+import { useState } from "react"
 import {
   DndContext,
   PointerSensor,
@@ -90,6 +91,7 @@ export function NewsletterInlineCanvas({
   )
   const bannerText =
     newsletter.banner.trim() || "INFORMATIVO CONDOMINIAL · EDIÇÃO EM RASCUNHO"
+  const theme = newsletter.theme ?? {}
 
   function moveSection(type: NewsletterSectionType, direction: -1 | 1) {
     const currentIndex = sections.findIndex((section) => section.type === type)
@@ -158,6 +160,10 @@ export function NewsletterInlineCanvas({
         "min-h-screen bg-[#F7F5EE] text-[#1F1F1A]",
         isMobile && "min-h-0 shadow-[0_22px_70px_rgba(22,59,53,0.18)]"
       )}
+      style={{
+        backgroundColor: theme.background,
+        color: theme.text,
+      }}
     >
       <EditableNewsletterHeader
         editable={editable}
@@ -1042,19 +1048,16 @@ function EditableCta({
           )}
 
           {editable && (
-            <label className="mt-3 flex max-w-xs items-center gap-2 border border-[#B7B783]/60 bg-[#F7F5EE]/10 px-2 py-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#E8E4D4]">
-              <Link2 className="size-3.5 shrink-0" />
-              <input
-                className="min-w-0 flex-1 bg-transparent text-xs normal-case tracking-normal text-[#F7F5EE] outline-none placeholder:text-[#E8E4D4]/70"
-                placeholder="mailto:contato@..."
-                value={cta.href}
-                onChange={(event) =>
-                  onChange((draft) => {
-                    draft.cta.href = event.target.value
-                  })
-                }
-              />
-            </label>
+            <LinkPopoverButton
+              className="mt-3"
+              contrast="dark"
+              value={cta.href}
+              onChange={(href) =>
+                onChange((draft) => {
+                  draft.cta.href = href
+                })
+              }
+            />
           )}
         </div>
       </div>
@@ -1511,15 +1514,7 @@ function EditableFooterLink({
           {content}
         </span>
         {onHrefChange && (
-          <span className="inline-flex max-w-[220px] items-center gap-1 border border-[#B7B783]/60 bg-[#F7F5EE]/70 px-1.5 py-1 text-[10px] text-[#4F5549]">
-            <Link2 className="size-3 shrink-0" />
-            <input
-              className="min-w-0 bg-transparent outline-none"
-              placeholder="https://..."
-              value={contact.href}
-              onChange={(event) => onHrefChange(event.target.value)}
-            />
-          </span>
+          <LinkPopoverButton value={contact.href} onChange={onHrefChange} />
         )}
       </span>
     )
@@ -1576,6 +1571,71 @@ function initialsFromName(name: string) {
     .join("")
 
   return initials || "JJ"
+}
+
+type LinkPopoverButtonProps = {
+  className?: string
+  contrast?: "dark" | "light"
+  onChange: (value: string) => void
+  value: string
+}
+
+function LinkPopoverButton({
+  className,
+  contrast = "light",
+  onChange,
+  value,
+}: LinkPopoverButtonProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [draftValue, setDraftValue] = useState(value)
+
+  return (
+    <span className={cn("relative inline-flex", className)}>
+      <button
+        className={cn(
+          "inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-semibold",
+          contrast === "dark"
+            ? "border-[#F7F5EE]/25 bg-[#F7F5EE]/10 text-[#F7F5EE] hover:bg-[#F7F5EE]/15"
+            : "border-black/10 bg-white text-black hover:bg-black/5"
+        )}
+        onClick={() => {
+          setDraftValue(value)
+          setIsOpen((current) => !current)
+        }}
+        type="button"
+      >
+        <Link2 className="size-3.5" />
+        Link
+      </button>
+      {isOpen && (
+        <span className="absolute left-0 top-10 z-40 flex w-[min(330px,calc(100vw-32px))] items-center gap-2 rounded-lg border border-black/10 bg-white p-2 text-black shadow-[0_16px_42px_rgba(0,0,0,0.14)]">
+          <input
+            className="h-8 min-w-0 flex-1 rounded-md border border-black/15 px-2 text-xs outline-none focus:border-black/45"
+            placeholder="https://..."
+            value={draftValue}
+            onChange={(event) => setDraftValue(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault()
+                onChange(draftValue)
+                setIsOpen(false)
+              }
+            }}
+          />
+          <button
+            className="h-8 rounded-md bg-black px-3 text-xs font-semibold text-white"
+            onClick={() => {
+              onChange(draftValue)
+              setIsOpen(false)
+            }}
+            type="button"
+          >
+            OK
+          </button>
+        </span>
+      )}
+    </span>
+  )
 }
 
 function removeEmptyStyle(style: NewsletterTextStyle) {

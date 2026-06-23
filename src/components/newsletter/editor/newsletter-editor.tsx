@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   Eye,
   Laptop,
+  Palette,
   Pencil,
   RotateCcw,
   Save,
@@ -333,6 +334,27 @@ export function NewsletterEditor({
               Restaurar
             </Button>
 
+            <AppearancePopover
+              background={newsletter.theme?.background ?? "#F7F5EE"}
+              text={newsletter.theme?.text ?? "#1F1F1A"}
+              onBackgroundChange={(background) =>
+                updateNewsletter((draft) => {
+                  draft.theme = {
+                    ...(draft.theme ?? {}),
+                    background,
+                  }
+                })
+              }
+              onTextChange={(text) =>
+                updateNewsletter((draft) => {
+                  draft.theme = {
+                    ...(draft.theme ?? {}),
+                    text,
+                  }
+                })
+              }
+            />
+
             <Button
               className="bg-black text-white hover:bg-black/80"
               disabled={isSaving}
@@ -383,18 +405,128 @@ export function NewsletterEditor({
               : "max-w-none px-0"
           )}
         >
-          <NewsletterInlineCanvas
-            editable={isEditing}
-            newsletter={newsletter}
-            viewport={viewport}
-            onAttorneyPhotoChange={handleAttorneyPhotoChange}
-            onChange={updateNewsletter}
-            onLogoChange={handleLogoChange}
-            onRemoveAttorneyPhoto={removeAttorneyPhoto}
-            onRemoveLogo={removeLogo}
-          />
+          {viewport === "mobile" ? (
+            <div className="mx-auto rounded-[34px] border border-black/15 bg-neutral-950 p-2 shadow-[0_24px_80px_rgba(0,0,0,0.25)]">
+              <div className="mx-auto mb-2 h-1.5 w-20 rounded-full bg-white/25" />
+              <div className="h-[760px] overflow-y-auto rounded-[26px] bg-[#F7F5EE]">
+                <NewsletterInlineCanvas
+                  editable={isEditing}
+                  newsletter={newsletter}
+                  viewport={viewport}
+                  onAttorneyPhotoChange={handleAttorneyPhotoChange}
+                  onChange={updateNewsletter}
+                  onLogoChange={handleLogoChange}
+                  onRemoveAttorneyPhoto={removeAttorneyPhoto}
+                  onRemoveLogo={removeLogo}
+                />
+              </div>
+            </div>
+          ) : (
+            <NewsletterInlineCanvas
+              editable={isEditing}
+              newsletter={newsletter}
+              viewport={viewport}
+              onAttorneyPhotoChange={handleAttorneyPhotoChange}
+              onChange={updateNewsletter}
+              onLogoChange={handleLogoChange}
+              onRemoveAttorneyPhoto={removeAttorneyPhoto}
+              onRemoveLogo={removeLogo}
+            />
+          )}
         </div>
       </section>
     </main>
+  )
+}
+
+const backgroundSwatches = [
+  "#F7F5EE",
+  "#FFFFFF",
+  "#F3F0E6",
+  "#ECE8D8",
+  "#F5F7F4",
+]
+
+const textSwatches = ["#1F1F1A", "#163B35", "#244F49", "#3F3F37", "#000000"]
+
+type AppearancePopoverProps = {
+  background: string
+  onBackgroundChange: (value: string) => void
+  onTextChange: (value: string) => void
+  text: string
+}
+
+function AppearancePopover({
+  background,
+  onBackgroundChange,
+  onTextChange,
+  text,
+}: AppearancePopoverProps) {
+  const [isOpen, setIsOpen] = useState(false)
+
+  return (
+    <div className="relative">
+      <Button
+        className="border-black/15 bg-white text-black hover:bg-black/5"
+        onClick={() => setIsOpen((current) => !current)}
+        type="button"
+        variant="outline"
+      >
+        <Palette />
+        Aparência
+      </Button>
+
+      {isOpen && (
+        <div className="absolute right-0 top-10 z-50 w-64 rounded-xl border border-black/10 bg-white p-3 text-black shadow-[0_18px_54px_rgba(0,0,0,0.14)]">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">
+            Fundo
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {backgroundSwatches.map((swatch) => (
+              <SwatchButton
+                key={swatch}
+                active={background === swatch}
+                color={swatch}
+                onClick={() => onBackgroundChange(swatch)}
+              />
+            ))}
+          </div>
+
+          <p className="mt-4 text-xs font-semibold uppercase tracking-[0.14em] text-black/45">
+            Texto base
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {textSwatches.map((swatch) => (
+              <SwatchButton
+                key={swatch}
+                active={text === swatch}
+                color={swatch}
+                onClick={() => onTextChange(swatch)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+type SwatchButtonProps = {
+  active: boolean
+  color: string
+  onClick: () => void
+}
+
+function SwatchButton({ active, color, onClick }: SwatchButtonProps) {
+  return (
+    <button
+      className={cn(
+        "size-8 rounded-full border border-black/15",
+        active && "ring-2 ring-black ring-offset-2"
+      )}
+      onClick={onClick}
+      style={{ backgroundColor: color }}
+      type="button"
+    />
   )
 }

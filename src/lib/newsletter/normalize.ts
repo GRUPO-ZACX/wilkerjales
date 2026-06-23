@@ -37,7 +37,12 @@ function normalizeIntro(value: unknown, fallback: RichTextSegment[]) {
     .filter(isRecord)
     .map((segment) => ({
       bold: typeof segment.bold === "boolean" ? segment.bold : undefined,
+      color: optionalString(segment.color),
+      href: optionalString(segment.href),
+      italic: typeof segment.italic === "boolean" ? segment.italic : undefined,
       text: stringOrFallback(segment.text, ""),
+      underline:
+        typeof segment.underline === "boolean" ? segment.underline : undefined,
     }))
 
   return intro.length > 0 ? intro : fallback
@@ -169,6 +174,10 @@ function normalizeTextStyles(value: unknown) {
       style.bold = rawStyle.bold
     }
 
+    if (typeof rawStyle.color === "string") {
+      style.color = rawStyle.color
+    }
+
     if (rawStyle.fontFamily === "sans" || rawStyle.fontFamily === "serif") {
       style.fontFamily = rawStyle.fontFamily
     }
@@ -197,6 +206,17 @@ function normalizeTextStyles(value: unknown) {
   return Object.keys(styles).length > 0 ? styles : undefined
 }
 
+function normalizeTheme(value: unknown) {
+  if (!isRecord(value)) {
+    return undefined
+  }
+
+  return {
+    background: optionalString(value.background),
+    text: optionalString(value.text),
+  }
+}
+
 export function normalizeNewsletterTemplate(value: unknown): NewsletterTemplate {
   const fallback = cloneNewsletter(defaultNewsletterTemplate)
 
@@ -214,6 +234,7 @@ export function normalizeNewsletterTemplate(value: unknown): NewsletterTemplate 
     id: stringOrFallback(value.id, fallback.id),
     slug: stringOrFallback(value.slug, fallback.slug),
     sections: normalizeNewsletterSections(normalizeSections(value.sections)),
+    theme: normalizeTheme(value.theme) ?? fallback.theme,
     textStyles: normalizeTextStyles(value.textStyles),
     header: {
       collection: stringOrFallback(

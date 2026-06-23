@@ -5,6 +5,10 @@ export const defaultNewsletterTemplate: NewsletterTemplate = {
   id: "informativo-condominial-02-2026",
   slug: "demo",
   sections: defaultNewsletterSections.map((section) => ({ ...section })),
+  theme: {
+    background: "#F7F5EE",
+    text: "#1F1F1A",
+  },
   header: {
     collection: "COLEÇÃO 2026",
     period: "MAIO · SEMANA 2",

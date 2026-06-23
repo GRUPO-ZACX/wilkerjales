@@ -1,4 +1,10 @@
 import type { NewsletterTemplate } from "yes@/lib/newsletter/types"
+import {
+  getNewsletterTextStyle,
+  newsletterTextStyleClassName,
+  newsletterTextStyleCss,
+} from "yes@/lib/newsletter/text-style"
+import { cn } from "yes@/lib/utils"
 
 type NewsletterDecisionBoxProps = {
   newsletter: NewsletterTemplate
@@ -19,6 +25,14 @@ export function NewsletterDecisionBox({
           const title = topic.title.trim() || "Tópico jurídico"
           const description =
             topic.description.trim() || "Descrição objetiva do entendimento."
+          const titleStyle = getNewsletterTextStyle(
+            newsletter,
+            `decisionTopics.${index}.title`
+          )
+          const descriptionStyle = getNewsletterTextStyle(
+            newsletter,
+            `decisionTopics.${index}.description`
+          )
 
           return (
             <article
@@ -29,10 +43,22 @@ export function NewsletterDecisionBox({
                 {String(index + 1).padStart(2, "0")}
               </span>
               <div className="min-w-0">
-                <h3 className="text-[20px] font-semibold leading-tight text-[#1F1F1A] [overflow-wrap:anywhere]">
+                <h3
+                  className={cn(
+                    "text-[20px] font-semibold leading-tight text-[#1F1F1A] [overflow-wrap:anywhere]",
+                    newsletterTextStyleClassName(titleStyle)
+                  )}
+                  style={newsletterTextStyleCss(titleStyle)}
+                >
                   {title}
                 </h3>
-                <p className="mt-2 text-sm leading-6 text-[#404038] [overflow-wrap:anywhere]">
+                <p
+                  className={cn(
+                    "mt-2 text-sm leading-6 text-[#404038] [overflow-wrap:anywhere]",
+                    newsletterTextStyleClassName(descriptionStyle)
+                  )}
+                  style={newsletterTextStyleCss(descriptionStyle)}
+                >
                   {description}
                 </p>
               </div>
