@@ -164,15 +164,23 @@ export function NewsletterInlineCanvas({
     const customSection = createCustomSection(type, id)
 
     onChange((draft) => {
+      const currentSections = getNewsletterSections(draft)
+      const currentVisibleSections = currentSections.filter(
+        (section) => !section.hidden
+      )
+      const currentHiddenSections = currentSections.filter(
+        (section) => section.hidden
+      )
+
       draft.customSections = [...(draft.customSections ?? []), customSection]
       draft.sections = [
-        ...visibleSections,
         {
           id,
-          order: visibleSections.length,
+          order: 0,
           type,
         },
-        ...sections.filter((section) => section.hidden),
+        ...currentVisibleSections,
+        ...currentHiddenSections,
       ].map((section, index) => ({ ...section, order: index }))
     })
   }
@@ -554,7 +562,11 @@ function AddSectionButton({ icon, label, onClick }: AddSectionButtonProps) {
   return (
     <button
       className="inline-flex h-9 items-center gap-2 rounded-lg border border-black/10 bg-white px-3 text-xs font-semibold text-black transition-colors hover:bg-black hover:text-white"
-      onClick={onClick}
+      onClick={(event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        onClick()
+      }}
       type="button"
     >
       {icon}
@@ -1434,15 +1446,31 @@ function EditableCustomImageSection({
             style={{ backgroundImage: `url(${customSection.imageUrl})` }}
           />
         ) : (
-          <div className="grid gap-3 text-center text-[#244F49]">
+          <div className="grid gap-4 text-center text-[#244F49]">
             <ImageSymbol className="mx-auto size-10" />
-            <p className="text-sm font-semibold">
-              Adicione uma imagem nesta seção
-            </p>
+            <div>
+              <p className="text-sm font-semibold">
+                Adicione uma imagem nesta seção
+              </p>
+              {editable && (
+                <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-lg bg-[#244F49] px-4 py-2 text-xs font-semibold text-[#F7F5EE] shadow-sm transition-colors hover:bg-[#163B35]">
+                  <ImageIcon className="size-4" />
+                  Selecionar imagem
+                  <input
+                    accept="image/*"
+                    className="sr-only"
+                    type="file"
+                    onChange={(event) =>
+                      updateCustomImageFromFile(event, onChange, section.id)
+                    }
+                  />
+                </label>
+              )}
+            </div>
           </div>
         )}
 
-        {editable && (
+        {editable && customSection.imageUrl && (
           <label className="absolute inset-0 grid cursor-pointer place-items-center bg-[#163B35]/0 text-sm font-semibold text-[#F7F5EE] opacity-0 transition-opacity group-hover/custom-image:bg-[#163B35]/70 group-hover/custom-image:opacity-100">
             <span className="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-black">
               <ImageIcon className="size-4" />
@@ -1452,26 +1480,9 @@ function EditableCustomImageSection({
               accept="image/*"
               className="sr-only"
               type="file"
-              onChange={(event) => {
-                const file = event.target.files?.[0]
-                if (!file) {
-                  return
-                }
-
-                const url = URL.createObjectURL(file)
-                onChange((draft) => {
-                  const item = findCustomSection(
-                    draft,
-                    section.id,
-                    "custom-image"
-                  )
-                  if (item) {
-                    item.imageAlt = file.name
-                    item.imageUrl = url
-                  }
-                })
-                event.target.value = ""
-              }}
+              onChange={(event) =>
+                updateCustomImageFromFile(event, onChange, section.id)
+              }
             />
           </label>
         )}
@@ -1495,6 +1506,29 @@ function EditableCustomImageSection({
       />
     </section>
   )
+}
+
+function updateCustomImageFromFile(
+  event: ChangeEvent<HTMLInputElement>,
+  onChange: (updater: (draft: NewsletterTemplate) => void) => void,
+  sectionId: string
+) {
+  const file = event.target.files?.[0]
+
+  if (!file) {
+    return
+  }
+
+  const url = URL.createObjectURL(file)
+
+  onChange((draft) => {
+    const item = findCustomSection(draft, sectionId, "custom-image")
+    if (item) {
+      item.imageAlt = file.name
+      item.imageUrl = url
+    }
+  })
+  event.target.value = ""
 }
 
 function EditableCustomButtonSection({
