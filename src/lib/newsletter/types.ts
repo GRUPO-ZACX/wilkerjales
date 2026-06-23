@@ -15,6 +15,8 @@ export type NewsletterHeader = {
 export type NewsletterFirm = {
   name: string
   descriptor: string
+  logoUrl?: string
+  logoAlt?: string
 }
 
 export type NewsletterTopic = {

@@ -14,6 +14,7 @@ export function NewsletterHeader({ newsletter }: NewsletterHeaderProps) {
   const firmName = newsletter.firm.name.trim() || "Nome do escritório"
   const firmDescriptor =
     newsletter.firm.descriptor.trim() || "Advogados Associados"
+  const logoUrl = newsletter.firm.logoUrl
 
   return (
     <header className="relative border-b border-[#B7B783] bg-[#F7F5EE] px-5 py-5 sm:px-7 lg:px-8">
@@ -30,7 +31,16 @@ export function NewsletterHeader({ newsletter }: NewsletterHeaderProps) {
 
         <div className="flex min-w-0 items-center gap-3 sm:justify-center">
           <div className="grid size-12 shrink-0 place-items-center rounded-full border border-[#B7B783] bg-[#163B35] text-[#F7F5EE] shadow-[0_0_0_6px_rgba(183,183,131,0.13)]">
-            <Scale className="size-6" />
+            {logoUrl ? (
+              <div
+                aria-label={newsletter.firm.logoAlt ?? firmName}
+                className="h-full w-full rounded-full bg-cover bg-center"
+                role="img"
+                style={{ backgroundImage: `url(${logoUrl})` }}
+              />
+            ) : (
+              <Scale className="size-6" />
+            )}
           </div>
           <div className="min-w-0">
             <p className="text-[25px] font-semibold leading-none tracking-[-0.02em] text-[#1F1F1A] [overflow-wrap:anywhere]">

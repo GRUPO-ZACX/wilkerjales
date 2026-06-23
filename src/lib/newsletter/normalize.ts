@@ -170,6 +170,8 @@ export function normalizeNewsletterTemplate(value: unknown): NewsletterTemplate 
     },
     firm: {
       descriptor: stringOrFallback(firm.descriptor, fallback.firm.descriptor),
+      logoAlt: optionalString(firm.logoAlt),
+      logoUrl: optionalString(firm.logoUrl),
       name: stringOrFallback(firm.name, fallback.firm.name),
     },
     banner: stringOrFallback(value.banner, fallback.banner),
@@ -216,6 +218,11 @@ export function prepareNewsletterForPersistence(value: NewsletterTemplate) {
   if (newsletter.attorney.photoUrl?.startsWith("blob:")) {
     newsletter.attorney.photoUrl = undefined
     newsletter.attorney.photoAlt = undefined
+  }
+
+  if (newsletter.firm.logoUrl?.startsWith("blob:")) {
+    newsletter.firm.logoUrl = undefined
+    newsletter.firm.logoAlt = undefined
   }
 
   return JSON.parse(JSON.stringify(newsletter)) as NewsletterTemplate
