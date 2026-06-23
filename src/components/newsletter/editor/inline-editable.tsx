@@ -67,6 +67,7 @@ export function InlineText({
   value,
 }: InlineTextProps) {
   const [isFocused, setIsFocused] = useState(false)
+  const wrapperRef = useRef<HTMLSpanElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const displayValue = value.trim() || placeholder
   const textStyleClassName = textStyleClasses(textStyle)
@@ -78,7 +79,7 @@ export function InlineText({
       : undefined,
   }
 
-  useLayoutEffect(() => {
+  function resizeTextarea() {
     const textarea = textareaRef.current
 
     if (!textarea) {
@@ -86,8 +87,39 @@ export function InlineText({
     }
 
     textarea.style.height = "auto"
-    textarea.style.height = `${textarea.scrollHeight}px`
-  }, [value])
+    textarea.style.height = `${Math.ceil(textarea.scrollHeight) + 6}px`
+  }
+
+  useLayoutEffect(() => {
+    resizeTextarea()
+    const animationFrame = requestAnimationFrame(resizeTextarea)
+
+    return () => cancelAnimationFrame(animationFrame)
+  }, [
+    className,
+    multiline,
+    textStyle?.bold,
+    textStyle?.fontFamily,
+    textStyle?.fontSize,
+    textStyle?.letterSpacing,
+    textStyle?.lineHeight,
+    value,
+  ])
+
+  function closeToolbarIfFocusLeft() {
+    window.setTimeout(() => {
+      const activeElement = document.activeElement
+
+      if (
+        activeElement &&
+        wrapperRef.current?.contains(activeElement)
+      ) {
+        return
+      }
+
+      setIsFocused(false)
+    }, 0)
+  }
 
   function transformValue(transform: "upper" | "lower" | "title") {
     const source = value || placeholder
@@ -124,7 +156,7 @@ export function InlineText({
   }
 
   return (
-    <span className="relative block min-w-0">
+    <span ref={wrapperRef} className="relative block min-w-0">
       {showTextTools && isFocused && (
         <TextToolbar
           textStyle={textStyle}
@@ -143,8 +175,11 @@ export function InlineText({
           className,
           textStyleClassName
         )}
-        onBlur={() => setIsFocused(false)}
-        onChange={(event) => onChange(event.target.value)}
+        onBlur={closeToolbarIfFocusLeft}
+        onChange={(event) => {
+          onChange(event.target.value)
+          resizeTextarea()
+        }}
         onFocus={() => setIsFocused(true)}
         onKeyDown={(event) => {
           if (!multiline && event.key === "Enter") {
@@ -183,8 +218,25 @@ export function InlineRichText({
   textStyle,
 }: InlineRichTextProps) {
   const [isFocused, setIsFocused] = useState(false)
+  const wrapperRef = useRef<HTMLSpanElement>(null)
   const isEmpty = segments.every((segment) => !segment.text.trim())
   const textStyleClassName = textStyleClasses(textStyle)
+
+  function closeToolbarIfFocusLeft() {
+    window.setTimeout(() => {
+      const activeElement = document.activeElement
+
+      if (
+        activeElement &&
+        wrapperRef.current?.contains(activeElement)
+      ) {
+        return
+      }
+
+      setIsFocused(false)
+    }, 0)
+  }
+
   const editor = useEditor(
     {
       content: segmentsToHtml(segments),
@@ -230,7 +282,7 @@ export function InlineRichText({
         }),
       ],
       immediatelyRender: false,
-      onBlur: () => setIsFocused(false),
+      onBlur: closeToolbarIfFocusLeft,
       onFocus: () => setIsFocused(true),
       onUpdate: ({ editor }) => {
         onChange(htmlToSegments(editor.getHTML()))
@@ -281,7 +333,8 @@ export function InlineRichText({
 
   return (
     <span
-      className="relative block min-w-0"
+      ref={wrapperRef}
+      className={cn("relative block min-w-0", textStyleClassName)}
       style={textStyleInlineStyle(textStyle)}
     >
       {isFocused && editor && (
