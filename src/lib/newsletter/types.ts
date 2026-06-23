@@ -19,6 +19,14 @@ export type NewsletterFirm = {
   logoAlt?: string
 }
 
+export type NewsletterTextStyle = {
+  align?: "left" | "center" | "right"
+  bold?: boolean
+  fontFamily?: "sans" | "serif"
+  letterSpacing?: "normal" | "wide" | "wider"
+  lineHeight?: "compact" | "normal" | "loose"
+}
+
 export type NewsletterTopic = {
   title: string
   description: string
@@ -75,6 +83,7 @@ export type NewsletterTemplate = {
   id: string
   slug: string
   sections?: NewsletterSection[]
+  textStyles?: Record<string, NewsletterTextStyle>
   header: NewsletterHeader
   firm: NewsletterFirm
   banner: string

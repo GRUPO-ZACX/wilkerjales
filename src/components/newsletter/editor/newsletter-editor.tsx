@@ -254,12 +254,12 @@ export function NewsletterEditor({
 
   return (
     <main className="min-h-screen bg-[#F7F5EE] text-[#1F1F1A]">
-      <header className="sticky top-0 z-50 border-b border-[#B7B783] bg-[#ECE8D8]/95 px-4 py-3 backdrop-blur sm:px-6 lg:px-8">
+      <header className="sticky top-0 z-50 border-b border-black/10 bg-white/95 px-4 py-3 text-black backdrop-blur sm:px-6 lg:px-8">
         <div className="mx-auto flex w-full max-w-[1520px] flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex min-w-0 items-center gap-3">
             <Button
               asChild
-              className="border-[#B7B783] bg-[#F7F5EE]/70 text-[#163B35] hover:bg-[#F7F5EE]"
+              className="border-black/15 bg-white text-black hover:bg-black/5"
               size="sm"
               variant="outline"
             >
@@ -270,14 +270,14 @@ export function NewsletterEditor({
             </Button>
 
             <div className="min-w-0">
-              <p className="truncate text-xs font-semibold uppercase tracking-[0.16em] text-[#6D714C]">
+              <p className="truncate text-xs font-semibold uppercase tracking-[0.16em] text-black/50">
                 Editor no próprio informativo
               </p>
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="truncate text-lg font-semibold tracking-[-0.02em] text-[#163B35] sm:text-xl">
+                <h1 className="truncate text-lg font-semibold tracking-[-0.02em] text-black sm:text-xl">
                   {newsletter.title.trim() || "Novo informativo"}
                 </h1>
-                <span className="rounded-full border border-[#B7B783] bg-[#F7F5EE] px-2.5 py-1 text-xs font-semibold text-[#244F49]">
+                <span className="rounded-full border border-black/10 bg-black/[0.03] px-2.5 py-1 text-xs font-semibold text-black/70">
                   {statusLabel}
                 </span>
               </div>
@@ -285,11 +285,11 @@ export function NewsletterEditor({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex rounded-lg border border-[#B7B783] bg-[#F7F5EE]/80 p-1">
+            <div className="inline-flex rounded-lg border border-black/10 bg-black/[0.03] p-1">
               <button
                 className={cn(
-                  "inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-semibold text-[#244F49] transition-colors",
-                  viewport === "desktop" && "bg-[#163B35] text-[#F7F5EE]"
+                  "inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-semibold text-black/70 transition-colors hover:text-black",
+                  viewport === "desktop" && "bg-black text-white hover:text-white"
                 )}
                 onClick={() => setViewport("desktop")}
                 type="button"
@@ -299,8 +299,8 @@ export function NewsletterEditor({
               </button>
               <button
                 className={cn(
-                  "inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-semibold text-[#244F49] transition-colors",
-                  viewport === "mobile" && "bg-[#163B35] text-[#F7F5EE]"
+                  "inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-semibold text-black/70 transition-colors hover:text-black",
+                  viewport === "mobile" && "bg-black text-white hover:text-white"
                 )}
                 onClick={() => setViewport("mobile")}
                 type="button"
@@ -311,7 +311,7 @@ export function NewsletterEditor({
             </div>
 
             <Button
-              className="border-[#B7B783] bg-[#F7F5EE]/70 text-[#163B35] hover:bg-[#F7F5EE]"
+              className="border-black/15 bg-white text-black hover:bg-black/5"
               onClick={() =>
                 setPreviewMode((current) =>
                   current === "edit" ? "public" : "edit"
@@ -324,7 +324,7 @@ export function NewsletterEditor({
             </Button>
 
             <Button
-              className="border-[#B7B783] bg-[#F7F5EE]/70 text-[#163B35] hover:bg-[#F7F5EE]"
+              className="border-black/15 bg-white text-black hover:bg-black/5"
               disabled={isSaving}
               onClick={restoreDefaultTemplate}
               variant="outline"
@@ -334,7 +334,7 @@ export function NewsletterEditor({
             </Button>
 
             <Button
-              className="bg-[#163B35] text-[#F7F5EE] hover:bg-[#244F49]"
+              className="bg-black text-white hover:bg-black/80"
               disabled={isSaving}
               onClick={saveDraft}
             >
@@ -344,7 +344,7 @@ export function NewsletterEditor({
 
             {onPublish && status !== "published" && (
               <Button
-                className="border-[#B7B783] bg-[#B7B783] text-[#163B35] hover:bg-[#C9C99A]"
+                className="border-black bg-black text-white hover:bg-black/80"
                 disabled={isSaving}
                 onClick={publishNewsletter}
                 variant="outline"
@@ -356,7 +356,7 @@ export function NewsletterEditor({
 
             {onUnpublish && status === "published" && (
               <Button
-                className="border-[#B7B783] bg-[#F7F5EE]/70 text-[#163B35] hover:bg-[#F7F5EE]"
+                className="border-black/15 bg-white text-black hover:bg-black/5"
                 disabled={isSaving}
                 onClick={unpublishNewsletter}
                 variant="outline"
@@ -368,7 +368,7 @@ export function NewsletterEditor({
         </div>
 
         {feedback && (
-          <p className="mx-auto mt-2 w-full max-w-[1520px] text-xs font-medium text-[#244F49]">
+          <p className="mx-auto mt-2 w-full max-w-[1520px] text-xs font-medium text-black/60">
             {feedback}
           </p>
         )}

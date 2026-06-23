@@ -6,6 +6,7 @@ import type {
   NewsletterSection,
   NewsletterSectionType,
   NewsletterTemplate,
+  NewsletterTextStyle,
   NewsletterTextBlock,
   NewsletterTopic,
   RichTextSegment,
@@ -142,6 +143,60 @@ function normalizeSections(value: unknown): NewsletterSection[] | undefined {
   })
 }
 
+function normalizeTextStyles(value: unknown) {
+  if (!isRecord(value)) {
+    return undefined
+  }
+
+  const styles: Record<string, NewsletterTextStyle> = {}
+
+  Object.entries(value).forEach(([key, rawStyle]) => {
+    if (!isRecord(rawStyle)) {
+      return
+    }
+
+    const style: NewsletterTextStyle = {}
+
+    if (
+      rawStyle.align === "left" ||
+      rawStyle.align === "center" ||
+      rawStyle.align === "right"
+    ) {
+      style.align = rawStyle.align
+    }
+
+    if (typeof rawStyle.bold === "boolean") {
+      style.bold = rawStyle.bold
+    }
+
+    if (rawStyle.fontFamily === "sans" || rawStyle.fontFamily === "serif") {
+      style.fontFamily = rawStyle.fontFamily
+    }
+
+    if (
+      rawStyle.letterSpacing === "normal" ||
+      rawStyle.letterSpacing === "wide" ||
+      rawStyle.letterSpacing === "wider"
+    ) {
+      style.letterSpacing = rawStyle.letterSpacing
+    }
+
+    if (
+      rawStyle.lineHeight === "compact" ||
+      rawStyle.lineHeight === "normal" ||
+      rawStyle.lineHeight === "loose"
+    ) {
+      style.lineHeight = rawStyle.lineHeight
+    }
+
+    if (Object.keys(style).length > 0) {
+      styles[key] = style
+    }
+  })
+
+  return Object.keys(styles).length > 0 ? styles : undefined
+}
+
 export function normalizeNewsletterTemplate(value: unknown): NewsletterTemplate {
   const fallback = cloneNewsletter(defaultNewsletterTemplate)
 
@@ -159,6 +214,7 @@ export function normalizeNewsletterTemplate(value: unknown): NewsletterTemplate 
     id: stringOrFallback(value.id, fallback.id),
     slug: stringOrFallback(value.slug, fallback.slug),
     sections: normalizeNewsletterSections(normalizeSections(value.sections)),
+    textStyles: normalizeTextStyles(value.textStyles),
     header: {
       collection: stringOrFallback(
         header.collection,

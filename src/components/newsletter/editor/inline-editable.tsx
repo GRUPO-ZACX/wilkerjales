@@ -8,7 +8,10 @@ import {
   type ElementType,
 } from "react"
 
-import type { RichTextSegment } from "yes@/lib/newsletter/types"
+import type {
+  NewsletterTextStyle,
+  RichTextSegment,
+} from "yes@/lib/newsletter/types"
 import { cn } from "yes@/lib/utils"
 
 type InlineTextProps = {
@@ -17,9 +20,11 @@ type InlineTextProps = {
   editable: boolean
   multiline?: boolean
   onChange: (value: string) => void
+  onTextStyleChange?: (style: NewsletterTextStyle) => void
   placeholder: string
   renderAs?: ElementType
   showTextTools?: boolean
+  textStyle?: NewsletterTextStyle
   value: string
 }
 
@@ -29,14 +34,17 @@ export function InlineText({
   editable,
   multiline = true,
   onChange,
+  onTextStyleChange,
   placeholder,
   renderAs: StaticTag = "span",
-  showTextTools = false,
+  showTextTools = true,
+  textStyle,
   value,
 }: InlineTextProps) {
   const [isFocused, setIsFocused] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const displayValue = value.trim() || placeholder
+  const textStyleClassName = textStyleClasses(textStyle)
 
   useLayoutEffect(() => {
     const textarea = textareaRef.current
@@ -61,9 +69,22 @@ export function InlineText({
     onChange(nextValue)
   }
 
+  function updateTextStyle(nextStyle: NewsletterTextStyle) {
+    onTextStyleChange?.({
+      ...textStyle,
+      ...nextStyle,
+    })
+  }
+
   if (!editable) {
     return (
-      <StaticTag className={cn("[overflow-wrap:anywhere]", className)}>
+      <StaticTag
+        className={cn(
+          "[overflow-wrap:anywhere]",
+          className,
+          textStyleClassName
+        )}
+      >
         {displayValue}
       </StaticTag>
     )
@@ -72,40 +93,22 @@ export function InlineText({
   return (
     <span className="relative block min-w-0">
       {showTextTools && isFocused && (
-        <span className="absolute -top-9 left-0 z-20 inline-flex overflow-hidden rounded-sm border border-[#B7B783] bg-[#F7F5EE] shadow-[0_10px_28px_rgba(22,59,53,0.12)]">
-          <button
-            className="px-2 py-1 text-[11px] font-bold text-[#163B35] hover:bg-[#ECE8D8]"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => transformValue("upper")}
-            type="button"
-          >
-            AA
-          </button>
-          <button
-            className="border-l border-[#B7B783] px-2 py-1 text-[11px] font-bold text-[#163B35] hover:bg-[#ECE8D8]"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => transformValue("lower")}
-            type="button"
-          >
-            aa
-          </button>
-          <button
-            className="border-l border-[#B7B783] px-2 py-1 text-[11px] font-bold text-[#163B35] hover:bg-[#ECE8D8]"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => transformValue("title")}
-            type="button"
-          >
-            Aa
-          </button>
-        </span>
+        <TextToolbar
+          textStyle={textStyle}
+          onChange={onTextStyleChange ? updateTextStyle : undefined}
+          onLower={() => transformValue("lower")}
+          onTitle={() => transformValue("title")}
+          onUpper={() => transformValue("upper")}
+        />
       )}
       <textarea
         ref={textareaRef}
         aria-label={ariaLabel}
         className={cn(
-          "block w-full min-w-0 resize-none overflow-hidden rounded-sm border border-transparent bg-transparent p-0 text-inherit outline-none transition-colors placeholder:text-[#8A8A76] focus:border-[#B7B783] focus:bg-[#F7F5EE]/80 focus:px-2 focus:py-1 focus:shadow-[0_0_0_4px_rgba(183,183,131,0.16)]",
+          "block w-full min-w-0 resize-none overflow-hidden rounded-[2px] border border-transparent bg-transparent p-0 text-inherit outline-none transition-[border-color] placeholder:text-[#8A8A76] focus:border-[#B7B783]/80 focus:bg-transparent",
           !multiline && "whitespace-nowrap",
-          className
+          className,
+          textStyleClassName
         )}
         onBlur={() => setIsFocused(false)}
         onChange={(event) => onChange(event.target.value)}
@@ -129,8 +132,10 @@ type InlineRichTextProps = {
   className?: string
   editable: boolean
   onChange: (segments: RichTextSegment[]) => void
+  onTextStyleChange?: (style: NewsletterTextStyle) => void
   placeholder: string
   segments: RichTextSegment[]
+  textStyle?: NewsletterTextStyle
 }
 
 export function InlineRichText({
@@ -138,13 +143,16 @@ export function InlineRichText({
   className,
   editable,
   onChange,
+  onTextStyleChange,
   placeholder,
   segments,
+  textStyle,
 }: InlineRichTextProps) {
   const editorRef = useRef<HTMLParagraphElement>(null)
   const [isFocused, setIsFocused] = useState(false)
   const html = segmentsToHtml(segments)
   const isEmpty = segments.every((segment) => !segment.text.trim())
+  const textStyleClassName = textStyleClasses(textStyle)
 
   useEffect(() => {
     const editor = editorRef.current
@@ -184,9 +192,22 @@ export function InlineRichText({
     ])
   }
 
+  function updateTextStyle(nextStyle: NewsletterTextStyle) {
+    onTextStyleChange?.({
+      ...textStyle,
+      ...nextStyle,
+    })
+  }
+
   if (!editable) {
     return (
-      <p className={cn("[overflow-wrap:anywhere]", className)}>
+      <p
+        className={cn(
+          "[overflow-wrap:anywhere]",
+          className,
+          textStyleClassName
+        )}
+      >
         {isEmpty
           ? placeholder
           : segments.map((segment, index) =>
@@ -203,32 +224,13 @@ export function InlineRichText({
   return (
     <span className="relative block min-w-0">
       {isFocused && (
-        <span className="absolute -top-9 left-0 z-20 inline-flex overflow-hidden rounded-sm border border-[#B7B783] bg-[#F7F5EE] shadow-[0_10px_28px_rgba(22,59,53,0.12)]">
-          <button
-            className="px-2.5 py-1 text-[12px] font-black text-[#163B35] hover:bg-[#ECE8D8]"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => runCommand("bold")}
-            type="button"
-          >
-            B
-          </button>
-          <button
-            className="border-l border-[#B7B783] px-2 py-1 text-[11px] font-bold text-[#163B35] hover:bg-[#ECE8D8]"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => transformAll("upper")}
-            type="button"
-          >
-            AA
-          </button>
-          <button
-            className="border-l border-[#B7B783] px-2 py-1 text-[11px] font-bold text-[#163B35] hover:bg-[#ECE8D8]"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={() => transformAll("lower")}
-            type="button"
-          >
-            aa
-          </button>
-        </span>
+        <TextToolbar
+          textStyle={textStyle}
+          onBold={() => runCommand("bold")}
+          onChange={onTextStyleChange ? updateTextStyle : undefined}
+          onLower={() => transformAll("lower")}
+          onUpper={() => transformAll("upper")}
+        />
       )}
 
       {isEmpty && !isFocused && (
@@ -241,8 +243,9 @@ export function InlineRichText({
         ref={editorRef}
         aria-label={ariaLabel}
         className={cn(
-          "min-h-[1.5em] rounded-sm border border-transparent outline-none transition-colors empty:before:text-[#8A8A76] focus:border-[#B7B783] focus:bg-[#F7F5EE]/80 focus:px-2 focus:py-1 focus:shadow-[0_0_0_4px_rgba(183,183,131,0.16)] [&_strong]:font-bold",
-          className
+          "min-h-[1.5em] rounded-[2px] border border-transparent outline-none transition-[border-color] empty:before:text-[#8A8A76] focus:border-[#B7B783]/80 focus:bg-transparent [&_strong]:font-bold",
+          className,
+          textStyleClassName
         )}
         contentEditable
         dangerouslySetInnerHTML={{ __html: html }}
@@ -254,6 +257,168 @@ export function InlineRichText({
       />
     </span>
   )
+}
+
+type TextToolbarProps = {
+  onBold?: () => void
+  onChange?: (style: NewsletterTextStyle) => void
+  onLower?: () => void
+  onTitle?: () => void
+  onUpper?: () => void
+  textStyle?: NewsletterTextStyle
+}
+
+function TextToolbar({
+  onBold,
+  onChange,
+  onLower,
+  onTitle,
+  onUpper,
+  textStyle,
+}: TextToolbarProps) {
+  const nextLineHeight = cycleValue(textStyle?.lineHeight, [
+    "compact",
+    "normal",
+    "loose",
+  ])
+  const nextLetterSpacing = cycleValue(textStyle?.letterSpacing, [
+    "normal",
+    "wide",
+    "wider",
+  ])
+
+  return (
+    <span className="absolute -top-10 left-0 z-20 flex max-w-[min(720px,calc(100vw-32px))] items-center overflow-x-auto rounded-md border border-black/10 bg-white text-black shadow-[0_10px_30px_rgba(0,0,0,0.10)]">
+      <ToolbarButton
+        active={textStyle?.bold}
+        label="B"
+        title="Negrito"
+        onClick={() => {
+          if (onBold) {
+            onBold()
+            return
+          }
+          onChange?.({ bold: !textStyle?.bold })
+        }}
+      />
+      <ToolbarButton
+        active={textStyle?.fontFamily === "serif"}
+        label="Serif"
+        title="Fonte serifada"
+        onClick={() =>
+          onChange?.({
+            fontFamily: textStyle?.fontFamily === "serif" ? "sans" : "serif",
+          })
+        }
+      />
+      <ToolbarButton
+        label={lineHeightLabel(textStyle?.lineHeight)}
+        title="Entrelinha"
+        onClick={() => onChange?.({ lineHeight: nextLineHeight })}
+      />
+      <ToolbarButton
+        label={letterSpacingLabel(textStyle?.letterSpacing)}
+        title="Entre letras"
+        onClick={() => onChange?.({ letterSpacing: nextLetterSpacing })}
+      />
+      <ToolbarButton
+        active={textStyle?.align === "left" || !textStyle?.align}
+        label="E"
+        title="Alinhar à esquerda"
+        onClick={() => onChange?.({ align: "left" })}
+      />
+      <ToolbarButton
+        active={textStyle?.align === "center"}
+        label="C"
+        title="Centralizar"
+        onClick={() => onChange?.({ align: "center" })}
+      />
+      <ToolbarButton
+        active={textStyle?.align === "right"}
+        label="D"
+        title="Alinhar à direita"
+        onClick={() => onChange?.({ align: "right" })}
+      />
+      <ToolbarButton label="AA" title="Maiúsculas" onClick={onUpper} />
+      {onTitle && (
+        <ToolbarButton label="Aa" title="Título" onClick={onTitle} />
+      )}
+      <ToolbarButton label="aa" title="Minúsculas" onClick={onLower} />
+    </span>
+  )
+}
+
+type ToolbarButtonProps = {
+  active?: boolean
+  label: string
+  onClick?: () => void
+  title: string
+}
+
+function ToolbarButton({ active, label, onClick, title }: ToolbarButtonProps) {
+  return (
+    <button
+      className={cn(
+        "h-8 shrink-0 border-r border-black/10 px-2.5 text-[11px] font-semibold transition-colors last:border-r-0 hover:bg-black/5",
+        active && "bg-black text-white hover:bg-black"
+      )}
+      disabled={!onClick}
+      onMouseDown={(event) => event.preventDefault()}
+      onClick={onClick}
+      title={title}
+      type="button"
+    >
+      {label}
+    </button>
+  )
+}
+
+function textStyleClasses(style: NewsletterTextStyle | undefined) {
+  return cn(
+    style?.bold && "font-bold",
+    style?.fontFamily === "serif" && "font-serif",
+    style?.fontFamily === "sans" && "font-sans",
+    style?.letterSpacing === "wide" && "tracking-wide",
+    style?.letterSpacing === "wider" && "tracking-wider",
+    style?.lineHeight === "compact" && "leading-snug",
+    style?.lineHeight === "normal" && "leading-normal",
+    style?.lineHeight === "loose" && "leading-loose",
+    style?.align === "center" && "text-center",
+    style?.align === "right" && "text-right",
+    style?.align === "left" && "text-left"
+  )
+}
+
+function cycleValue<T extends string>(
+  current: T | undefined,
+  values: [T, ...T[]]
+) {
+  const index = current ? values.indexOf(current) : -1
+  return values[(index + 1) % values.length]
+}
+
+function lineHeightLabel(value: NewsletterTextStyle["lineHeight"]) {
+  if (value === "compact") {
+    return "LH-"
+  }
+
+  if (value === "loose") {
+    return "LH+"
+  }
+
+  return "LH"
+}
+
+function letterSpacingLabel(value: NewsletterTextStyle["letterSpacing"]) {
+  if (value === "wide") {
+    return "LS+"
+  }
+
+  if (value === "wider") {
+    return "LS++"
+  }
+
+  return "LS"
 }
 
 function toTitleCase(value: string) {

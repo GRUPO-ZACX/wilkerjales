@@ -38,6 +38,7 @@ import type {
   NewsletterSection,
   NewsletterSectionType,
   NewsletterTemplate,
+  NewsletterTextStyle,
 } from "yes@/lib/newsletter/types"
 import { getNewsletterSections } from "yes@/lib/newsletter/sections"
 import { cn } from "yes@/lib/utils"
@@ -132,6 +133,25 @@ export function NewsletterInlineCanvas({
     })
   }
 
+  function getTextStyle(fieldId: string) {
+    return newsletter.textStyles?.[fieldId]
+  }
+
+  function updateTextStyle(fieldId: string, style: NewsletterTextStyle) {
+    onChange((draft) => {
+      draft.textStyles = {
+        ...(draft.textStyles ?? {}),
+        [fieldId]: removeEmptyStyle(style),
+      }
+    })
+  }
+
+  const textStyleProps = (fieldId: string) => ({
+    textStyle: getTextStyle(fieldId),
+    onTextStyleChange: (style: NewsletterTextStyle) =>
+      updateTextStyle(fieldId, style),
+  })
+
   return (
     <main
       className={cn(
@@ -148,7 +168,13 @@ export function NewsletterInlineCanvas({
         onRemoveLogo={onRemoveLogo}
       />
 
-      <div className="border-y border-[#B7B783]/45 bg-[#244F49] px-5 py-3.5 text-[10px] font-semibold uppercase tracking-[0.28em] text-[#F7F5EE] sm:text-[11px]">
+      <div
+        className={cn(
+          "border-y border-[#B7B783]/45 bg-[#244F49] px-5 py-3.5 text-[10px] font-semibold uppercase tracking-[0.28em] text-[#F7F5EE]",
+          !isMobile && "sm:text-[11px]",
+          isMobile && "tracking-[0.18em]"
+        )}
+      >
         <div
           className={cn(
             "mx-auto w-full [overflow-wrap:anywhere]",
@@ -166,14 +192,17 @@ export function NewsletterInlineCanvas({
                 draft.banner = value
               })
             }
+            {...textStyleProps("banner")}
           />
         </div>
       </div>
 
       <section
         className={cn(
-          "mx-auto w-full px-5 py-10",
-          isMobile ? "max-w-[430px]" : "max-w-[1280px] sm:px-7 lg:px-8 lg:py-14"
+          "mx-auto w-full",
+          isMobile
+            ? "max-w-[430px] px-4 py-8"
+            : "max-w-[1280px] px-5 py-10 sm:px-7 lg:px-8 lg:py-14"
         )}
       >
         <div
@@ -184,7 +213,7 @@ export function NewsletterInlineCanvas({
               : "lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_390px]"
           )}
         >
-          <div className="min-w-0 space-y-14">
+          <div className={cn("min-w-0", isMobile ? "space-y-10" : "space-y-14")}>
             {editable ? (
               <DndContext
                 collisionDetection={closestCenter}
@@ -210,6 +239,7 @@ export function NewsletterInlineCanvas({
                         newsletter={newsletter}
                         type={section.type}
                         onChange={onChange}
+                        textStyleProps={textStyleProps}
                       />
                     </SortableSectionFrame>
                   ))}
@@ -224,6 +254,7 @@ export function NewsletterInlineCanvas({
                     newsletter={newsletter}
                     type={section.type}
                     onChange={onChange}
+                    textStyleProps={textStyleProps}
                   />
                 </div>
               ))
@@ -237,6 +268,7 @@ export function NewsletterInlineCanvas({
             onAttorneyPhotoChange={onAttorneyPhotoChange}
             onChange={onChange}
             onRemoveAttorneyPhoto={onRemoveAttorneyPhoto}
+            textStyleProps={textStyleProps}
           />
         </div>
       </section>
@@ -246,6 +278,7 @@ export function NewsletterInlineCanvas({
         isMobile={isMobile}
         newsletter={newsletter}
         onChange={onChange}
+        textStyleProps={textStyleProps}
       />
     </main>
   )
@@ -256,6 +289,10 @@ type NewsletterContentSectionProps = {
   isMobile: boolean
   newsletter: NewsletterTemplate
   onChange: (updater: (draft: NewsletterTemplate) => void) => void
+  textStyleProps: (fieldId: string) => {
+    onTextStyleChange: (style: NewsletterTextStyle) => void
+    textStyle: NewsletterTextStyle | undefined
+  }
   type: NewsletterSectionType
 }
 
@@ -264,6 +301,7 @@ function NewsletterContentSection({
   isMobile,
   newsletter,
   onChange,
+  textStyleProps,
   type,
 }: NewsletterContentSectionProps) {
   if (type === "hero") {
@@ -273,6 +311,7 @@ function NewsletterContentSection({
         isMobile={isMobile}
         newsletter={newsletter}
         onChange={onChange}
+        textStyleProps={textStyleProps}
       />
     )
   }
@@ -281,8 +320,10 @@ function NewsletterContentSection({
     return (
       <EditableDecisionBox
         editable={editable}
+        isMobile={isMobile}
         newsletter={newsletter}
         onChange={onChange}
+        textStyleProps={textStyleProps}
       />
     )
   }
@@ -294,6 +335,7 @@ function NewsletterContentSection({
         isMobile={isMobile}
         newsletter={newsletter}
         onChange={onChange}
+        textStyleProps={textStyleProps}
       />
     )
   }
@@ -302,8 +344,10 @@ function NewsletterContentSection({
     return (
       <EditableSyndicCards
         editable={editable}
+        isMobile={isMobile}
         newsletter={newsletter}
         onChange={onChange}
+        textStyleProps={textStyleProps}
       />
     )
   }
@@ -312,8 +356,10 @@ function NewsletterContentSection({
     return (
       <EditableCta
         editable={editable}
+        isMobile={isMobile}
         newsletter={newsletter}
         onChange={onChange}
+        textStyleProps={textStyleProps}
       />
     )
   }
@@ -418,7 +464,12 @@ function EditableNewsletterHeader({
   const firmDescriptor = newsletter.firm.descriptor
 
   return (
-    <header className="relative border-b border-[#B7B783] bg-[#F7F5EE] px-5 py-5 sm:px-7 lg:px-8">
+    <header
+      className={cn(
+        "relative border-b border-[#B7B783] bg-[#F7F5EE]",
+        isMobile ? "px-4 py-5" : "px-5 py-5 sm:px-7 lg:px-8"
+      )}
+    >
       <div className="absolute inset-x-0 top-0 flex h-1">
         <div className="flex-1 bg-[#163B35]" />
         <div className="w-40 bg-[#B7B783]" />
@@ -426,9 +477,9 @@ function EditableNewsletterHeader({
 
       <div
         className={cn(
-          "mx-auto grid w-full gap-6",
+          "mx-auto grid w-full",
           isMobile
-            ? "max-w-[430px]"
+            ? "max-w-[430px] gap-5"
             : "max-w-[1280px] sm:grid-cols-[1fr_1.45fr_1fr] sm:items-center"
         )}
       >
@@ -475,7 +526,10 @@ function EditableNewsletterHeader({
           <div className="min-w-0">
             <InlineText
               ariaLabel="Nome do escritório"
-              className="text-[25px] font-semibold leading-none tracking-[-0.02em] text-[#1F1F1A]"
+              className={cn(
+                "font-semibold leading-none tracking-[-0.02em] text-[#1F1F1A]",
+                isMobile ? "text-[21px]" : "text-[25px]"
+              )}
               editable={editable}
               multiline={false}
               placeholder="Nome do escritório"
@@ -488,7 +542,10 @@ function EditableNewsletterHeader({
             />
             <InlineText
               ariaLabel="Descrição do escritório"
-              className="mt-1 text-[10px] font-bold uppercase tracking-[0.34em] text-[#244F49]"
+              className={cn(
+                "mt-1 text-[10px] font-bold uppercase text-[#244F49]",
+                isMobile ? "tracking-[0.22em]" : "tracking-[0.34em]"
+              )}
               editable={editable}
               multiline={false}
               placeholder="Advogados Associados"
@@ -603,6 +660,7 @@ function EditableHero({
   isMobile,
   newsletter,
   onChange,
+  textStyleProps,
 }: Omit<NewsletterContentSectionProps, "type">) {
   const intro = newsletter.intro.length > 0 ? newsletter.intro : [{ text: "" }]
 
@@ -612,7 +670,7 @@ function EditableHero({
         ariaLabel="Título principal"
         className={cn(
           "max-w-[860px] font-serif leading-[0.98] tracking-tight text-[#1F1F1A]",
-          isMobile ? "text-[44px]" : "text-5xl sm:text-6xl lg:text-[84px]"
+          isMobile ? "text-[38px]" : "text-5xl sm:text-6xl lg:text-[84px]"
         )}
         editable={editable}
         placeholder="Título do informativo"
@@ -624,12 +682,13 @@ function EditableHero({
             draft.title = value
           })
         }
+        {...textStyleProps("title")}
       />
       <InlineText
         ariaLabel="Destaque principal"
         className={cn(
           "mt-7 max-w-[860px] border-l-[6px] border-[#B7B783] pl-6 font-serif leading-tight text-[#244F49]",
-          isMobile ? "text-[30px]" : "text-3xl sm:text-[42px]"
+          isMobile ? "text-[25px]" : "text-3xl sm:text-[42px]"
         )}
         editable={editable}
         placeholder="Destaque principal"
@@ -641,13 +700,14 @@ function EditableHero({
             draft.highlight = value
           })
         }
+        {...textStyleProps("highlight")}
       />
 
       <InlineRichText
         ariaLabel="Parágrafo introdutório"
         className={cn(
           "mt-9 max-w-[820px] text-[#1F1F1A]",
-          isMobile ? "text-[16px] leading-8" : "text-[18px] leading-9"
+          isMobile ? "text-[15px] leading-7" : "text-[18px] leading-9"
         )}
         editable={editable}
         placeholder="Parágrafo introdutório do informativo."
@@ -657,6 +717,7 @@ function EditableHero({
             draft.intro = segments
           })
         }
+        {...textStyleProps("intro")}
       />
     </section>
   )
@@ -664,17 +725,29 @@ function EditableHero({
 
 function EditableDecisionBox({
   editable,
+  isMobile,
   newsletter,
   onChange,
-}: Omit<NewsletterContentSectionProps, "type" | "isMobile">) {
+  textStyleProps,
+}: Omit<NewsletterContentSectionProps, "type">) {
   const topics =
     newsletter.decisionTopics.length > 0
       ? newsletter.decisionTopics
       : [{ title: "", description: "" }]
 
   return (
-    <section className="border border-[#B7B783] bg-white p-6 shadow-[inset_0_4px_0_#244F49] sm:p-8">
-      <div className="grid gap-x-8 gap-y-0 sm:grid-cols-2">
+    <section
+      className={cn(
+        "border border-[#B7B783] bg-white shadow-[inset_0_4px_0_#244F49]",
+        isMobile ? "p-5" : "p-6 sm:p-8"
+      )}
+    >
+      <div
+        className={cn(
+          "grid gap-x-8 gap-y-0",
+          !isMobile && "sm:grid-cols-2"
+        )}
+      >
         {topics.map((topic, index) => (
           <article
             key={`${index}-${topic.title}`}
@@ -696,6 +769,7 @@ function EditableDecisionBox({
                     draft.decisionTopics[index].title = value
                   })
                 }
+                {...textStyleProps(`decisionTopics.${index}.title`)}
               />
               <InlineText
                 ariaLabel={`Descrição do tópico jurídico ${index + 1}`}
@@ -709,6 +783,7 @@ function EditableDecisionBox({
                     draft.decisionTopics[index].description = value
                   })
                 }
+                {...textStyleProps(`decisionTopics.${index}.description`)}
               />
             </div>
           </article>
@@ -723,6 +798,7 @@ function EditableBody({
   isMobile,
   newsletter,
   onChange,
+  textStyleProps,
 }: Omit<NewsletterContentSectionProps, "type">) {
   const blocks =
     newsletter.bodyBlocks.length > 0
@@ -756,6 +832,7 @@ function EditableBody({
                     draft.bodyBlocks[index].title = value
                   })
                 }
+                {...textStyleProps(`bodyBlocks.${index}.title`)}
               />
               <div className="mt-5 space-y-5 text-[16px] leading-8 text-[#404038] [overflow-wrap:anywhere]">
                 {paragraphs.map((paragraph, paragraphIndex) => (
@@ -772,6 +849,9 @@ function EditableBody({
                           value
                       })
                     }
+                    {...textStyleProps(
+                      `bodyBlocks.${index}.paragraphs.${paragraphIndex}`
+                    )}
                   />
                 ))}
               </div>
@@ -785,9 +865,11 @@ function EditableBody({
 
 function EditableSyndicCards({
   editable,
+  isMobile,
   newsletter,
   onChange,
-}: Omit<NewsletterContentSectionProps, "type" | "isMobile">) {
+  textStyleProps,
+}: Omit<NewsletterContentSectionProps, "type">) {
   const cards =
     newsletter.syndicCards.length > 0
       ? newsletter.syndicCards
@@ -809,11 +891,17 @@ function EditableSyndicCards({
               draft.syndicTitle = value
             })
           }
+          {...textStyleProps("syndicTitle")}
         />
         <div className="h-px flex-1 bg-[#B7B783]" />
       </div>
 
-      <div className="mt-7 grid gap-5 sm:grid-cols-2">
+      <div
+        className={cn(
+          "mt-7 grid gap-5",
+          !isMobile && "sm:grid-cols-2"
+        )}
+      >
         {cards.map((card, index) => (
           <article
             key={`${index}-${card.number}`}
@@ -831,6 +919,7 @@ function EditableSyndicCards({
                   draft.syndicCards[index].number = value
                 })
               }
+              {...textStyleProps(`syndicCards.${index}.number`)}
             />
             <div className="min-w-0">
               <InlineText
@@ -845,6 +934,7 @@ function EditableSyndicCards({
                     draft.syndicCards[index].title = value
                   })
                 }
+                {...textStyleProps(`syndicCards.${index}.title`)}
               />
               <InlineText
                 ariaLabel={`Descrição do card ${index + 1}`}
@@ -858,6 +948,7 @@ function EditableSyndicCards({
                     draft.syndicCards[index].description = value
                   })
                 }
+                {...textStyleProps(`syndicCards.${index}.description`)}
               />
             </div>
           </article>
@@ -869,16 +960,28 @@ function EditableSyndicCards({
 
 function EditableCta({
   editable,
+  isMobile,
   newsletter,
   onChange,
-}: Omit<NewsletterContentSectionProps, "type" | "isMobile">) {
+  textStyleProps,
+}: Omit<NewsletterContentSectionProps, "type">) {
   const cta = newsletter.cta
   const label = cta.label.trim() || "Falar com o escritório"
   const href = cta.href.trim() || "#"
 
   return (
-    <section className="rounded-md border border-[#B7B783] bg-[#163B35] p-6 text-[#F7F5EE] sm:p-7">
-      <div className="grid gap-6 sm:grid-cols-[1fr_auto] sm:items-center">
+    <section
+      className={cn(
+        "rounded-md border border-[#B7B783] bg-[#163B35] text-[#F7F5EE]",
+        isMobile ? "p-5" : "p-6 sm:p-7"
+      )}
+    >
+      <div
+        className={cn(
+          "grid gap-6",
+          !isMobile && "sm:grid-cols-[1fr_auto] sm:items-center"
+        )}
+      >
         <div className="min-w-0">
           <InlineText
             ariaLabel="Título do CTA"
@@ -892,6 +995,7 @@ function EditableCta({
                 draft.cta.title = value
               })
             }
+            {...textStyleProps("cta.title")}
           />
           <InlineText
             ariaLabel="Descrição do CTA"
@@ -905,6 +1009,7 @@ function EditableCta({
                 draft.cta.description = value
               })
             }
+            {...textStyleProps("cta.description")}
           />
         </div>
 
@@ -922,6 +1027,7 @@ function EditableCta({
                     draft.cta.label = value
                   })
                 }
+                {...textStyleProps("cta.label")}
               />
               <ArrowRight className="size-4 shrink-0" />
             </div>
@@ -963,6 +1069,10 @@ type EditableSidebarProps = {
   onAttorneyPhotoChange: (event: ChangeEvent<HTMLInputElement>) => void
   onChange: (updater: (draft: NewsletterTemplate) => void) => void
   onRemoveAttorneyPhoto: () => void
+  textStyleProps: (fieldId: string) => {
+    onTextStyleChange: (style: NewsletterTextStyle) => void
+    textStyle: NewsletterTextStyle | undefined
+  }
 }
 
 function EditableSidebar({
@@ -972,6 +1082,7 @@ function EditableSidebar({
   onAttorneyPhotoChange,
   onChange,
   onRemoveAttorneyPhoto,
+  textStyleProps,
 }: EditableSidebarProps) {
   return (
     <aside
@@ -1036,6 +1147,7 @@ function EditableSidebar({
         onAttorneyPhotoChange={onAttorneyPhotoChange}
         onChange={onChange}
         onRemoveAttorneyPhoto={onRemoveAttorneyPhoto}
+        textStyleProps={textStyleProps}
       />
 
       <section className="border border-[#B7B783]/80 bg-white p-6">
@@ -1051,6 +1163,7 @@ function EditableSidebar({
               draft.sourceDescription = value
             })
           }
+          {...textStyleProps("sourceDescription")}
         />
       </section>
     </aside>
@@ -1097,6 +1210,7 @@ function EditableAttorneyCard({
   onAttorneyPhotoChange,
   onChange,
   onRemoveAttorneyPhoto,
+  textStyleProps,
 }: Omit<EditableSidebarProps, "isMobile">) {
   const attorney = newsletter.attorney
   const name = attorney.name
@@ -1163,6 +1277,7 @@ function EditableAttorneyCard({
               draft.attorney.initials = initialsFromName(value)
             })
           }
+          {...textStyleProps("attorney.name")}
         />
         <InlineText
           ariaLabel="Especialidade do advogado"
@@ -1176,6 +1291,7 @@ function EditableAttorneyCard({
               draft.attorney.specialty = value
             })
           }
+          {...textStyleProps("attorney.specialty")}
         />
         <div className="mt-5 border-t border-[#B7B783] pt-4">
           <Quote className="size-5 text-[#B7B783]" />
@@ -1191,6 +1307,7 @@ function EditableAttorneyCard({
                 draft.attorney.phrase = value
               })
             }
+            {...textStyleProps("attorney.phrase")}
           />
         </div>
       </div>
@@ -1203,6 +1320,10 @@ type EditableFooterProps = {
   isMobile: boolean
   newsletter: NewsletterTemplate
   onChange: (updater: (draft: NewsletterTemplate) => void) => void
+  textStyleProps: (fieldId: string) => {
+    onTextStyleChange: (style: NewsletterTextStyle) => void
+    textStyle: NewsletterTextStyle | undefined
+  }
 }
 
 function EditableNewsletterFooter({
@@ -1210,9 +1331,15 @@ function EditableNewsletterFooter({
   isMobile,
   newsletter,
   onChange,
+  textStyleProps,
 }: EditableFooterProps) {
   return (
-    <footer className="border-t border-[#B7B783] bg-[#ECE8D8] px-5 py-6 sm:px-7 lg:px-8">
+    <footer
+      className={cn(
+        "border-t border-[#B7B783] bg-[#ECE8D8]",
+        isMobile ? "px-4 py-6" : "px-5 py-6 sm:px-7 lg:px-8"
+      )}
+    >
       <div
         className={cn(
           "mx-auto grid w-full gap-5",
@@ -1235,6 +1362,7 @@ function EditableNewsletterFooter({
                 draft.firm.name = value
               })
             }
+            {...textStyleProps("firm.name.footer")}
           />
           <InlineText
             ariaLabel="Descrição do escritório no rodapé"
@@ -1249,6 +1377,7 @@ function EditableNewsletterFooter({
                 draft.firm.descriptor = value
               })
             }
+            {...textStyleProps("firm.descriptor.footer")}
           />
         </div>
 
@@ -1278,6 +1407,7 @@ function EditableNewsletterFooter({
                     )
                   })
                 }
+                textStyleProps={textStyleProps(`contacts.${index}.value`)}
               />
             ))}
           </div>
@@ -1297,6 +1427,7 @@ function EditableNewsletterFooter({
                 draft.address = value
               })
             }
+            {...textStyleProps("address")}
           />
 
           <div
@@ -1326,6 +1457,7 @@ function EditableNewsletterFooter({
                     draft.socialLinks[index].href = href
                   })
                 }
+                textStyleProps={textStyleProps(`socialLinks.${index}.value`)}
               />
             ))}
           </div>
@@ -1341,6 +1473,10 @@ type EditableFooterLinkProps = {
   icon: typeof Phone
   onChange: (value: string) => void
   onHrefChange?: (href: string) => void
+  textStyleProps?: {
+    onTextStyleChange: (style: NewsletterTextStyle) => void
+    textStyle: NewsletterTextStyle | undefined
+  }
 }
 
 function EditableFooterLink({
@@ -1349,6 +1485,7 @@ function EditableFooterLink({
   icon: Icon,
   onChange,
   onHrefChange,
+  textStyleProps,
 }: EditableFooterLinkProps) {
   const value = contact.value.trim() || contact.label
   const href = contact.href.trim() || "#"
@@ -1362,6 +1499,7 @@ function EditableFooterLink({
         placeholder={contact.label}
         value={value}
         onChange={onChange}
+        {...textStyleProps}
       />
     </>
   )
@@ -1438,4 +1576,10 @@ function initialsFromName(name: string) {
     .join("")
 
   return initials || "JJ"
+}
+
+function removeEmptyStyle(style: NewsletterTextStyle) {
+  return Object.fromEntries(
+    Object.entries(style).filter(([, value]) => value !== undefined)
+  ) as NewsletterTextStyle
 }
