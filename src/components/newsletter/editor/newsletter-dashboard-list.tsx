@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
 import { Copy, ExternalLink, LayoutGrid, List, Search } from "lucide-react"
 
@@ -138,15 +139,31 @@ type NewsletterItemProps = {
 }
 
 function NewsletterItem({ newsletter, viewMode }: NewsletterItemProps) {
+  const router = useRouter()
   const isPublished = newsletter.status === "published"
+  const editHref = `/dashboard/informativos/${newsletter.id}/editar`
+
+  function openEditor() {
+    router.push(editHref)
+  }
 
   return (
     <article
+      aria-label={`Editar informativo ${newsletter.title}`}
       className={cn(
-        "rounded-xl border border-black/10 bg-white p-4 text-black shadow-[0_12px_34px_rgba(0,0,0,0.04)]",
+        "cursor-pointer rounded-xl border border-black/10 bg-white p-4 text-black shadow-[0_12px_34px_rgba(0,0,0,0.04)] transition-[border-color,box-shadow,transform] hover:border-black/25 hover:shadow-[0_18px_44px_rgba(0,0,0,0.08)] focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30",
         viewMode === "list" &&
           "grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center"
       )}
+      onClick={openEditor}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault()
+          openEditor()
+        }
+      }}
+      role="link"
+      tabIndex={0}
     >
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
@@ -175,18 +192,9 @@ function NewsletterItem({ newsletter, viewMode }: NewsletterItemProps) {
           "mt-5 flex flex-wrap gap-2",
           viewMode === "list" && "mt-0 lg:justify-end"
         )}
+        onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => event.stopPropagation()}
       >
-        <Button
-          asChild
-          className="border-black/10 bg-white text-black hover:bg-black/5"
-          size="sm"
-          variant="outline"
-        >
-          <Link href={`/dashboard/informativos/${newsletter.id}/editar`}>
-            Editar
-          </Link>
-        </Button>
-
         {isPublished && (
           <Button
             asChild

@@ -68,6 +68,8 @@ export function InlineText({
   value,
 }: InlineTextProps) {
   const [isFocused, setIsFocused] = useState(false)
+  const lastEmittedValueRef = useRef(value)
+  const onChangeRef = useRef(onChange)
   const wrapperRef = useRef<HTMLSpanElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const displayValue = value.trim() || placeholder
@@ -91,6 +93,15 @@ export function InlineText({
     textarea.style.height = `${Math.ceil(textarea.scrollHeight) + 6}px`
   }
 
+  function emitValue(nextValue: string) {
+    if (lastEmittedValueRef.current === nextValue) {
+      return
+    }
+
+    lastEmittedValueRef.current = nextValue
+    onChangeRef.current(nextValue)
+  }
+
   useLayoutEffect(() => {
     resizeTextarea()
     const animationFrame = requestAnimationFrame(resizeTextarea)
@@ -107,6 +118,32 @@ export function InlineText({
     textStyle?.blockWidth,
     value,
   ])
+
+  useEffect(() => {
+    onChangeRef.current = onChange
+  }, [onChange])
+
+  useEffect(() => {
+    lastEmittedValueRef.current = value
+  }, [value])
+
+  useEffect(() => {
+    if (!editable || !isFocused) {
+      return
+    }
+
+    const interval = window.setInterval(() => {
+      const textarea = textareaRef.current
+
+      if (!textarea) {
+        return
+      }
+
+      emitValue(textarea.value)
+    }, 120)
+
+    return () => window.clearInterval(interval)
+  }, [editable, isFocused])
 
   function closeToolbarIfFocusLeft() {
     window.setTimeout(() => {
@@ -178,8 +215,8 @@ export function InlineText({
           textStyleClassName
         )}
         onBlur={closeToolbarIfFocusLeft}
-        onChange={(event) => {
-          onChange(event.target.value)
+        onInput={(event) => {
+          emitValue(event.currentTarget.value)
           resizeTextarea()
         }}
         onFocus={() => setIsFocused(true)}
@@ -260,6 +297,7 @@ export function InlineRichText({
             className,
             textStyleClassName
           ),
+          "data-rich-text-editor": "true",
           role: "textbox",
         },
       },
@@ -272,9 +310,11 @@ export function InlineRichText({
           hardBreak: false,
           heading: false,
           horizontalRule: false,
+          link: false,
           listItem: false,
           orderedList: false,
           strike: false,
+          underline: false,
         }),
         TextStyle,
         Color,

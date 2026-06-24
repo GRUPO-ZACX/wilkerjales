@@ -2,7 +2,14 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useEffect, useState, type ChangeEvent } from "react"
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type ReactNode,
+} from "react"
 import {
   ArrowLeft,
   Eye,
@@ -10,9 +17,11 @@ import {
   Palette,
   Pencil,
   RotateCcw,
+  Redo2,
   Save,
   Send,
   Smartphone,
+  Undo2,
 } from "lucide-react"
 
 import { Button } from "yes@/components/ui/button"
@@ -47,8 +56,25 @@ export type NewsletterEditorAction = (
 
 type PreviewMode = "edit" | "public"
 
+const HISTORY_LIMIT = 100
+
 function cloneNewsletter(newsletter: NewsletterTemplate): NewsletterTemplate {
   return JSON.parse(JSON.stringify(newsletter)) as NewsletterTemplate
+}
+
+function createEditorInitialNewsletter(newsletter: NewsletterTemplate) {
+  return cloneNewsletter({
+    ...newsletter,
+    sections: getNewsletterSections(newsletter),
+  })
+}
+
+function serializeNewsletter(newsletter: NewsletterTemplate) {
+  return JSON.stringify(newsletter)
+}
+
+function trimHistoryStack(items: NewsletterTemplate[]) {
+  return items.slice(-HISTORY_LIMIT)
 }
 
 export function NewsletterEditor({
@@ -61,41 +87,164 @@ export function NewsletterEditor({
   onUnpublish,
 }: NewsletterEditorProps) {
   const router = useRouter()
+  const initialNewsletterSnapshot = createEditorInitialNewsletter(initialNewsletter)
+  const initialNewsletterRef = useRef(initialNewsletterSnapshot)
+  const newsletterRef = useRef(cloneNewsletter(initialNewsletterSnapshot))
+  const historyRef = useRef<{
+    future: NewsletterTemplate[]
+    past: NewsletterTemplate[]
+  }>({
+    future: [],
+    past: [],
+  })
+  const objectUrlsRef = useRef<Set<string>>(new Set())
+  const [historyAvailability, setHistoryAvailability] = useState({
+    canRedo: false,
+    canUndo: false,
+  })
   const [newsletter, setNewsletter] = useState(() =>
-    cloneNewsletter({
-      ...initialNewsletter,
-      sections: getNewsletterSections(initialNewsletter),
-    })
+    cloneNewsletter(initialNewsletterSnapshot)
   )
   const [previewMode, setPreviewMode] = useState<PreviewMode>("edit")
   const [viewport, setViewport] = useState<NewsletterEditorViewport>("desktop")
-  const [attorneyPhotoObjectUrl, setAttorneyPhotoObjectUrl] = useState<
+  const [, setAttorneyPhotoObjectUrl] = useState<
     string | null
   >(null)
-  const [logoObjectUrl, setLogoObjectUrl] = useState<string | null>(null)
+  const [, setLogoObjectUrl] = useState<string | null>(null)
   const [status, setStatus] = useState<NewsletterStatus>(initialStatus)
   const [feedback, setFeedback] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
+    const objectUrls = objectUrlsRef.current
+
     return () => {
-      if (attorneyPhotoObjectUrl) {
-        URL.revokeObjectURL(attorneyPhotoObjectUrl)
-      }
-
-      if (logoObjectUrl) {
-        URL.revokeObjectURL(logoObjectUrl)
-      }
+      objectUrls.forEach((url) => URL.revokeObjectURL(url))
     }
-  }, [attorneyPhotoObjectUrl, logoObjectUrl])
+  }, [])
 
-  function updateNewsletter(updater: (draft: NewsletterTemplate) => void) {
-    setNewsletter((current) => {
-      const next = cloneNewsletter(current)
-      updater(next)
-      return next
+  const syncHistory = useCallback((history: typeof historyRef.current) => {
+    historyRef.current = history
+    setHistoryAvailability({
+      canRedo: history.future.length > 0,
+      canUndo: history.past.length > 0,
     })
-  }
+  }, [])
+
+  const commitNewsletter = useCallback(
+    (
+      nextNewsletter: NewsletterTemplate,
+      options?: { recordHistory?: boolean }
+    ) => {
+      const currentNewsletter = newsletterRef.current
+
+      if (
+        serializeNewsletter(currentNewsletter) ===
+        serializeNewsletter(nextNewsletter)
+      ) {
+        return
+      }
+
+      if (options?.recordHistory !== false) {
+        syncHistory({
+          future: [],
+          past: trimHistoryStack([
+            ...historyRef.current.past,
+            cloneNewsletter(currentNewsletter),
+          ]),
+        })
+      }
+
+      newsletterRef.current = cloneNewsletter(nextNewsletter)
+      setNewsletter(cloneNewsletter(nextNewsletter))
+    },
+    [syncHistory]
+  )
+
+  const updateNewsletter = useCallback(
+    (updater: (draft: NewsletterTemplate) => void) => {
+      const nextNewsletter = cloneNewsletter(newsletterRef.current)
+      updater(nextNewsletter)
+      commitNewsletter(nextNewsletter)
+    },
+    [commitNewsletter]
+  )
+
+  const undoNewsletterChange = useCallback(() => {
+    const previousNewsletter = historyRef.current.past.at(-1)
+
+    if (!previousNewsletter) {
+      return
+    }
+
+    syncHistory({
+      future: [
+        cloneNewsletter(newsletterRef.current),
+        ...historyRef.current.future,
+      ].slice(0, HISTORY_LIMIT),
+      past: historyRef.current.past.slice(0, -1),
+    })
+    newsletterRef.current = cloneNewsletter(previousNewsletter)
+    setNewsletter(cloneNewsletter(previousNewsletter))
+    setFeedback("Alteração desfeita.")
+  }, [syncHistory])
+
+  const redoNewsletterChange = useCallback(() => {
+    const nextNewsletter = historyRef.current.future[0]
+
+    if (!nextNewsletter) {
+      return
+    }
+
+    syncHistory({
+      future: historyRef.current.future.slice(1),
+      past: trimHistoryStack([
+        ...historyRef.current.past,
+        cloneNewsletter(newsletterRef.current),
+      ]),
+    })
+    newsletterRef.current = cloneNewsletter(nextNewsletter)
+    setNewsletter(cloneNewsletter(nextNewsletter))
+    setFeedback("Alteração refeita.")
+  }, [syncHistory])
+
+  useEffect(() => {
+    function handleUndoRedoShortcut(event: KeyboardEvent) {
+      const key = event.key.toLowerCase()
+
+      if (key !== "z" || (!event.ctrlKey && !event.metaKey) || event.altKey) {
+        return
+      }
+
+      const target = event.target
+
+      if (target instanceof HTMLInputElement && target.type !== "range") {
+        return
+      }
+
+      if (
+        target instanceof HTMLElement &&
+        target.closest("[data-rich-text-editor='true']")
+      ) {
+        return
+      }
+
+      event.preventDefault()
+
+      if (event.shiftKey) {
+        redoNewsletterChange()
+        return
+      }
+
+      undoNewsletterChange()
+    }
+
+    window.addEventListener("keydown", handleUndoRedoShortcut)
+
+    return () => {
+      window.removeEventListener("keydown", handleUndoRedoShortcut)
+    }
+  }, [redoNewsletterChange, undoNewsletterChange])
 
   function handleAttorneyPhotoChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
@@ -105,12 +254,8 @@ export function NewsletterEditor({
     }
 
     const nextUrl = URL.createObjectURL(file)
-    setAttorneyPhotoObjectUrl((currentUrl) => {
-      if (currentUrl) {
-        URL.revokeObjectURL(currentUrl)
-      }
-      return nextUrl
-    })
+    objectUrlsRef.current.add(nextUrl)
+    setAttorneyPhotoObjectUrl(nextUrl)
 
     updateNewsletter((draft) => {
       draft.attorney.photoUrl = nextUrl
@@ -127,12 +272,8 @@ export function NewsletterEditor({
     }
 
     const nextUrl = URL.createObjectURL(file)
-    setLogoObjectUrl((currentUrl) => {
-      if (currentUrl) {
-        URL.revokeObjectURL(currentUrl)
-      }
-      return nextUrl
-    })
+    objectUrlsRef.current.add(nextUrl)
+    setLogoObjectUrl(nextUrl)
 
     updateNewsletter((draft) => {
       draft.firm.logoUrl = nextUrl
@@ -142,10 +283,7 @@ export function NewsletterEditor({
   }
 
   function removeAttorneyPhoto() {
-    if (attorneyPhotoObjectUrl) {
-      URL.revokeObjectURL(attorneyPhotoObjectUrl)
-      setAttorneyPhotoObjectUrl(null)
-    }
+    setAttorneyPhotoObjectUrl(null)
 
     updateNewsletter((draft) => {
       draft.attorney.photoUrl = undefined
@@ -154,10 +292,7 @@ export function NewsletterEditor({
   }
 
   function removeLogo() {
-    if (logoObjectUrl) {
-      URL.revokeObjectURL(logoObjectUrl)
-      setLogoObjectUrl(null)
-    }
+    setLogoObjectUrl(null)
 
     updateNewsletter((draft) => {
       draft.firm.logoUrl = undefined
@@ -166,22 +301,16 @@ export function NewsletterEditor({
   }
 
   function restoreDefaultTemplate() {
-    if (attorneyPhotoObjectUrl) {
-      URL.revokeObjectURL(attorneyPhotoObjectUrl)
-      setAttorneyPhotoObjectUrl(null)
-    }
+    setAttorneyPhotoObjectUrl(null)
+    setLogoObjectUrl(null)
 
-    if (logoObjectUrl) {
-      URL.revokeObjectURL(logoObjectUrl)
-      setLogoObjectUrl(null)
-    }
-
-    setNewsletter(
-      cloneNewsletter({
-        ...initialNewsletter,
-        sections: getNewsletterSections(initialNewsletter),
-      })
-    )
+    syncHistory({
+      future: [],
+      past: [],
+    })
+    const restoredNewsletter = cloneNewsletter(initialNewsletterRef.current)
+    newsletterRef.current = restoredNewsletter
+    setNewsletter(cloneNewsletter(restoredNewsletter))
     setPreviewMode("edit")
     setViewport("desktop")
   }
@@ -252,6 +381,7 @@ export function NewsletterEditor({
         ? "Rascunho salvo"
         : "Rascunho local"
   const isEditing = previewMode === "edit"
+  const { canRedo, canUndo } = historyAvailability
 
   return (
     <main className="min-h-screen bg-neutral-50 text-black">
@@ -311,28 +441,48 @@ export function NewsletterEditor({
               </button>
             </div>
 
-            <Button
-              className="border-black/15 bg-white text-black hover:bg-black/5"
+            <EditorIconButton
+              label={isEditing ? "Visualizar" : "Editar"}
               onClick={() =>
                 setPreviewMode((current) =>
                   current === "edit" ? "public" : "edit"
                 )
               }
-              variant="outline"
             >
               {isEditing ? <Eye /> : <Pencil />}
-              {isEditing ? "Visualizar" : "Editar"}
-            </Button>
+            </EditorIconButton>
 
-            <Button
-              className="border-black/15 bg-white text-black hover:bg-black/5"
-              disabled={isSaving}
-              onClick={restoreDefaultTemplate}
-              variant="outline"
-            >
-              <RotateCcw />
-              Restaurar
-            </Button>
+            <div className="inline-flex overflow-hidden rounded-lg border border-black/15 bg-white">
+              <Button
+                className="rounded-none border-0 bg-white text-black hover:bg-black/5"
+                disabled={isSaving}
+                onClick={restoreDefaultTemplate}
+                variant="outline"
+              >
+                <RotateCcw />
+                Restaurar
+              </Button>
+              <button
+                aria-label="Desfazer alteração"
+                className="grid size-9 place-items-center border-l border-black/10 text-black/70 transition-colors hover:bg-black/5 hover:text-black disabled:cursor-not-allowed disabled:opacity-35"
+                disabled={!canUndo || isSaving}
+                onClick={undoNewsletterChange}
+                title="Desfazer alteração (Ctrl/⌘ + Z)"
+                type="button"
+              >
+                <Undo2 className="size-4" />
+              </button>
+              <button
+                aria-label="Refazer alteração"
+                className="grid size-9 place-items-center border-l border-black/10 text-black/70 transition-colors hover:bg-black/5 hover:text-black disabled:cursor-not-allowed disabled:opacity-35"
+                disabled={!canRedo || isSaving}
+                onClick={redoNewsletterChange}
+                title="Refazer alteração (Ctrl/⌘ + Shift + Z)"
+                type="button"
+              >
+                <Redo2 className="size-4" />
+              </button>
+            </div>
 
             <AppearancePopover
               background={newsletter.theme?.background ?? "#F7F5EE"}
@@ -355,14 +505,14 @@ export function NewsletterEditor({
               }
             />
 
-            <Button
+            <EditorIconButton
               className="bg-black text-white hover:bg-black/80"
               disabled={isSaving}
+              label={isSaving ? "Salvando" : "Salvar rascunho"}
               onClick={saveDraft}
             >
               <Save />
-              {isSaving ? "Salvando..." : "Salvar rascunho"}
-            </Button>
+            </EditorIconButton>
 
             {onPublish && status !== "published" && (
               <Button
@@ -439,6 +589,40 @@ export function NewsletterEditor({
   )
 }
 
+type EditorIconButtonProps = {
+  children: ReactNode
+  className?: string
+  disabled?: boolean
+  label: string
+  onClick: () => void
+}
+
+function EditorIconButton({
+  children,
+  className,
+  disabled,
+  label,
+  onClick,
+}: EditorIconButtonProps) {
+  return (
+    <Button
+      aria-label={label}
+      className={cn(
+        "border-black/15 bg-white text-black hover:bg-black/5",
+        className
+      )}
+      disabled={disabled}
+      onClick={onClick}
+      size="icon-lg"
+      title={label}
+      type="button"
+      variant="outline"
+    >
+      {children}
+    </Button>
+  )
+}
+
 const backgroundSwatches = [
   "#F7F5EE",
   "#FFFFFF",
@@ -466,15 +650,12 @@ function AppearancePopover({
 
   return (
     <div className="relative">
-      <Button
-        className="border-black/15 bg-white text-black hover:bg-black/5"
+      <EditorIconButton
+        label="Aparência"
         onClick={() => setIsOpen((current) => !current)}
-        type="button"
-        variant="outline"
       >
         <Palette />
-        Aparência
-      </Button>
+      </EditorIconButton>
 
       {isOpen && (
         <div className="absolute right-0 top-10 z-50 w-64 rounded-xl border border-black/10 bg-white p-3 text-black shadow-[0_18px_54px_rgba(0,0,0,0.14)]">
