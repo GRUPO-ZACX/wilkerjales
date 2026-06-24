@@ -12,6 +12,8 @@ import {
 } from "react"
 import {
   ArrowLeft,
+  ArrowUpRight,
+  Copy,
   Eye,
   Laptop,
   Palette,
@@ -114,6 +116,7 @@ export function NewsletterEditor({
   const [status, setStatus] = useState<NewsletterStatus>(initialStatus)
   const [feedback, setFeedback] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [copiedPublicLink, setCopiedPublicLink] = useState(false)
 
   useEffect(() => {
     const objectUrls = objectUrlsRef.current
@@ -374,6 +377,14 @@ export function NewsletterEditor({
     )
   }
 
+  async function copyPublicLink() {
+    const publicHref = `/informativo/${newsletter.slug}`
+
+    await navigator.clipboard.writeText(`${window.location.origin}${publicHref}`)
+    setCopiedPublicLink(true)
+    window.setTimeout(() => setCopiedPublicLink(false), 1600)
+  }
+
   const statusLabel =
     status === "published"
       ? "Publicado"
@@ -382,6 +393,7 @@ export function NewsletterEditor({
         : "Rascunho local"
   const isEditing = previewMode === "edit"
   const { canRedo, canUndo } = historyAvailability
+  const publicHref = `/informativo/${newsletter.slug}`
 
   return (
     <main className="min-h-screen bg-neutral-50 text-black">
@@ -527,21 +539,50 @@ export function NewsletterEditor({
             )}
 
             {onUnpublish && status === "published" && (
-              <Button
-                className="border-black/15 bg-white text-black hover:bg-black/5"
-                disabled={isSaving}
-                onClick={unpublishNewsletter}
-                variant="outline"
-              >
-                Voltar para rascunho
-              </Button>
+              <>
+                <div className="inline-flex overflow-hidden rounded-lg border border-black/15 bg-white">
+                  <Button
+                    asChild
+                    aria-label="Abrir link público"
+                    className="rounded-none border-0 bg-white text-black hover:bg-black/5"
+                    size="icon-lg"
+                    title="Abrir link público"
+                    variant="outline"
+                  >
+                    <Link href={publicHref} target="_blank">
+                      <ArrowUpRight />
+                    </Link>
+                  </Button>
+                  <Button
+                    aria-label="Copiar link público"
+                    className="rounded-none border-0 border-l border-black/10 bg-white text-black hover:bg-black/5"
+                    disabled={isSaving}
+                    size="icon-lg"
+                    title="Copiar link público"
+                    type="button"
+                    variant="outline"
+                    onClick={copyPublicLink}
+                  >
+                    <Copy />
+                  </Button>
+                </div>
+
+                <Button
+                  className="border-black/15 bg-white text-black hover:bg-black/5"
+                  disabled={isSaving}
+                  onClick={unpublishNewsletter}
+                  variant="outline"
+                >
+                  Voltar para rascunho
+                </Button>
+              </>
             )}
           </div>
         </div>
 
-        {feedback && (
+        {(feedback || copiedPublicLink) && (
           <p className="mx-auto mt-2 w-full max-w-[1520px] text-xs font-medium text-black/60">
-            {feedback}
+            {copiedPublicLink ? "Link público copiado." : feedback}
           </p>
         )}
       </header>

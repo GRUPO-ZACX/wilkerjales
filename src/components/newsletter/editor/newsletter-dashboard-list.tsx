@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
-import { Copy, ExternalLink, LayoutGrid, List, Search } from "lucide-react"
+import { ArrowUpRight, Copy, LayoutGrid, List, Search } from "lucide-react"
 
 import { Badge } from "yes@/components/ui/badge"
 import { Button } from "yes@/components/ui/button"
@@ -140,11 +140,20 @@ type NewsletterItemProps = {
 
 function NewsletterItem({ newsletter, viewMode }: NewsletterItemProps) {
   const router = useRouter()
+  const [copiedPublicLink, setCopiedPublicLink] = useState(false)
   const isPublished = newsletter.status === "published"
   const editHref = `/dashboard/informativos/${newsletter.id}/editar`
+  const publicHref = `/informativo/${newsletter.slug}`
 
   function openEditor() {
     router.push(editHref)
+  }
+
+  async function copyPublicLink() {
+    const origin = window.location.origin
+    await navigator.clipboard.writeText(`${origin}${publicHref}`)
+    setCopiedPublicLink(true)
+    window.setTimeout(() => setCopiedPublicLink(false), 1600)
   }
 
   return (
@@ -196,17 +205,31 @@ function NewsletterItem({ newsletter, viewMode }: NewsletterItemProps) {
         onKeyDown={(event) => event.stopPropagation()}
       >
         {isPublished && (
-          <Button
-            asChild
-            className="border-black/10 bg-white text-black hover:bg-black/5"
-            size="sm"
-            variant="outline"
-          >
-            <Link href={`/informativo/${newsletter.slug}`}>
-              <ExternalLink />
-              Público
-            </Link>
-          </Button>
+          <div className="inline-flex overflow-hidden rounded-lg border border-black/10 bg-white">
+            <Button
+              asChild
+              aria-label="Abrir link público"
+              className="rounded-none border-0 bg-white text-black hover:bg-black/5"
+              size="icon-sm"
+              title="Abrir link público"
+              variant="outline"
+            >
+              <Link href={publicHref} target="_blank">
+                <ArrowUpRight />
+              </Link>
+            </Button>
+            <Button
+              aria-label="Copiar link público"
+              className="rounded-none border-0 border-l border-black/10 bg-white text-black hover:bg-black/5"
+              size="icon-sm"
+              title="Copiar link público"
+              type="button"
+              variant="outline"
+              onClick={copyPublicLink}
+            >
+              <Copy />
+            </Button>
+          </div>
         )}
 
         {isPublished ? (
@@ -238,10 +261,15 @@ function NewsletterItem({ newsletter, viewMode }: NewsletterItemProps) {
             type="submit"
             variant="outline"
           >
-            <Copy />
             Duplicar
           </Button>
         </form>
+
+        {copiedPublicLink && (
+          <span className="self-center text-xs font-semibold text-black/55">
+            Link copiado
+          </span>
+        )}
       </div>
     </article>
   )
