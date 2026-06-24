@@ -118,6 +118,60 @@ export type NewsletterCustomSection =
   | NewsletterCustomButtonSection
   | NewsletterCustomMediaTextSection
 
+export type NewsletterSidebarSummaryBlock = {
+  id: string
+  type: "summary"
+  text: string
+}
+
+export type NewsletterSidebarMetadataBlock = {
+  id: string
+  type: "metadata"
+}
+
+export type NewsletterSidebarAttorneyBlock = {
+  id: string
+  type: "attorney"
+}
+
+export type NewsletterSidebarSourceBlock = {
+  id: string
+  type: "source"
+}
+
+export type NewsletterSidebarTextBlock = {
+  id: string
+  type: "sidebar-text"
+  title: string
+  body: RichTextSegment[]
+}
+
+export type NewsletterSidebarImageBlock = {
+  id: string
+  type: "sidebar-image"
+  caption: string
+  imageAlt?: string
+  imageUrl?: string
+}
+
+export type NewsletterSidebarMediaTextBlock = {
+  id: string
+  type: "sidebar-media-text"
+  body: RichTextSegment[]
+  imageAlt?: string
+  imageUrl?: string
+  title: string
+}
+
+export type NewsletterSidebarBlock =
+  | NewsletterSidebarSummaryBlock
+  | NewsletterSidebarMetadataBlock
+  | NewsletterSidebarAttorneyBlock
+  | NewsletterSidebarSourceBlock
+  | NewsletterSidebarTextBlock
+  | NewsletterSidebarImageBlock
+  | NewsletterSidebarMediaTextBlock
+
 export type NewsletterSectionType =
   | "hero"
   | "decision"
@@ -157,6 +211,7 @@ export type NewsletterTemplate = {
   attorney: NewsletterAttorney
   cta: NewsletterCta
   customSections?: NewsletterCustomSection[]
+  sidebarBlocks?: NewsletterSidebarBlock[]
   sourceTitle: string
   sourceDescription: string
   address: string

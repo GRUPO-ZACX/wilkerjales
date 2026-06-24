@@ -6,6 +6,7 @@ import type {
   NewsletterNumberedCard,
   NewsletterSection,
   NewsletterSectionType,
+  NewsletterSidebarBlock,
   NewsletterTemplate,
   NewsletterTextStyle,
   NewsletterTextBlock,
@@ -69,15 +70,13 @@ function normalizeCards(value: unknown, fallback: NewsletterNumberedCard[]) {
     return fallback
   }
 
-  const cards = value
+  return value
     .filter(isRecord)
     .map((card) => ({
       description: stringOrFallback(card.description, ""),
       number: stringOrFallback(card.number, ""),
       title: stringOrFallback(card.title, ""),
     }))
-
-  return cards.length > 0 ? cards : fallback
 }
 
 function normalizeBodyBlocks(value: unknown, fallback: NewsletterTextBlock[]) {
@@ -308,6 +307,79 @@ function normalizeCustomSections(value: unknown): NewsletterCustomSection[] {
   return sections
 }
 
+function normalizeSidebarBlocks(
+  value: unknown,
+  fallback: NewsletterSidebarBlock[]
+): NewsletterSidebarBlock[] {
+  if (!Array.isArray(value)) {
+    return fallback
+  }
+
+  const blocks: NewsletterSidebarBlock[] = []
+
+  value.filter(isRecord).forEach((block, index) => {
+    const id = stringOrFallback(block.id, `sidebar-block-${index + 1}`)
+
+    if (block.type === "summary") {
+      blocks.push({
+        id,
+        text: stringOrFallback(block.text, ""),
+        type: "summary",
+      })
+      return
+    }
+
+    if (block.type === "metadata") {
+      blocks.push({ id, type: "metadata" })
+      return
+    }
+
+    if (block.type === "attorney") {
+      blocks.push({ id, type: "attorney" })
+      return
+    }
+
+    if (block.type === "source") {
+      blocks.push({ id, type: "source" })
+      return
+    }
+
+    if (block.type === "sidebar-text") {
+      blocks.push({
+        body: normalizeIntro(block.body, [{ text: "" }]),
+        id,
+        title: stringOrFallback(block.title, ""),
+        type: "sidebar-text",
+      })
+      return
+    }
+
+    if (block.type === "sidebar-image") {
+      blocks.push({
+        caption: stringOrFallback(block.caption, ""),
+        id,
+        imageAlt: optionalString(block.imageAlt),
+        imageUrl: optionalString(block.imageUrl),
+        type: "sidebar-image",
+      })
+      return
+    }
+
+    if (block.type === "sidebar-media-text") {
+      blocks.push({
+        body: normalizeIntro(block.body, [{ text: "" }]),
+        id,
+        imageAlt: optionalString(block.imageAlt),
+        imageUrl: optionalString(block.imageUrl),
+        title: stringOrFallback(block.title, ""),
+        type: "sidebar-media-text",
+      })
+    }
+  })
+
+  return blocks
+}
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
 }
@@ -374,6 +446,10 @@ export function normalizeNewsletterTemplate(value: unknown): NewsletterTemplate 
       title: stringOrFallback(cta.title, fallback.cta.title),
     },
     customSections: normalizeCustomSections(value.customSections),
+    sidebarBlocks: normalizeSidebarBlocks(
+      value.sidebarBlocks,
+      fallback.sidebarBlocks ?? []
+    ),
     sourceTitle: stringOrFallback(value.sourceTitle, ""),
     sourceDescription: stringOrFallback(
       value.sourceDescription,
@@ -419,6 +495,22 @@ export function prepareNewsletterForPersistence(value: NewsletterTemplate) {
     }
 
     return section
+  })
+
+  newsletter.sidebarBlocks = newsletter.sidebarBlocks?.map((block) => {
+    if (
+      (block.type === "sidebar-image" ||
+        block.type === "sidebar-media-text") &&
+      block.imageUrl?.startsWith("blob:")
+    ) {
+      return {
+        ...block,
+        imageAlt: undefined,
+        imageUrl: undefined,
+      }
+    }
+
+    return block
   })
 
   return JSON.parse(JSON.stringify(newsletter)) as NewsletterTemplate

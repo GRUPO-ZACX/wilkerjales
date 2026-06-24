@@ -45,6 +45,7 @@ import type {
   NewsletterCustomSection,
   NewsletterSection,
   NewsletterSectionType,
+  NewsletterSidebarBlock,
   NewsletterTemplate,
   NewsletterTextStyle,
 } from "yes@/lib/newsletter/types"
@@ -1195,7 +1196,40 @@ function EditableSyndicCards({
   const cards =
     newsletter.syndicCards.length > 0
       ? newsletter.syndicCards
-      : [{ description: "", number: "01", title: "" }]
+      : []
+
+  function addSyndicCard() {
+    onChange((draft) => {
+      const nextNumber = String(draft.syndicCards.length + 1).padStart(2, "0")
+
+      draft.syndicCards.push({
+        description: "Descreva o ponto de atenção para o síndico.",
+        number: nextNumber,
+        title: "Novo ponto de atenção",
+      })
+    })
+  }
+
+  function duplicateSyndicCard(index: number) {
+    onChange((draft) => {
+      const card = draft.syndicCards[index]
+
+      if (!card) {
+        return
+      }
+
+      draft.syndicCards.splice(index + 1, 0, {
+        ...structuredClone(card),
+        number: String(index + 2).padStart(2, "0"),
+      })
+    })
+  }
+
+  function deleteSyndicCard(index: number) {
+    onChange((draft) => {
+      draft.syndicCards.splice(index, 1)
+    })
+  }
 
   return (
     <section className="border-b border-[#B7B783]/55 pb-12">
@@ -1227,8 +1261,30 @@ function EditableSyndicCards({
         {cards.map((card, index) => (
           <article
             key={`syndic-card-${index}`}
-            className="relative grid min-h-44 grid-cols-[58px_minmax(0,1fr)] gap-5 border border-[#B7B783] bg-white p-5 shadow-[inset_4px_0_0_#244F49]"
+            className="group/card relative grid min-h-44 grid-cols-[58px_minmax(0,1fr)] gap-5 border border-[#B7B783] bg-white p-5 shadow-[inset_4px_0_0_#244F49]"
           >
+            {editable && (
+              <div className="absolute right-3 top-3 z-20 flex overflow-hidden rounded-lg border border-black/10 bg-white/95 text-black opacity-0 shadow-[0_10px_26px_rgba(0,0,0,0.12)] transition-opacity group-hover/card:opacity-100 group-focus-within/card:opacity-100">
+                <button
+                  className="px-2 py-1.5 text-black/60 transition-colors hover:bg-black/5 hover:text-black"
+                  onClick={() => duplicateSyndicCard(index)}
+                  title="Duplicar card"
+                  type="button"
+                >
+                  <Copy className="size-3.5" />
+                  <span className="sr-only">Duplicar card</span>
+                </button>
+                <button
+                  className="border-l border-black/10 px-2 py-1.5 text-black/60 transition-colors hover:bg-black/5 hover:text-black"
+                  onClick={() => deleteSyndicCard(index)}
+                  title="Excluir card"
+                  type="button"
+                >
+                  <Trash2 className="size-3.5" />
+                  <span className="sr-only">Excluir card</span>
+                </button>
+              </div>
+            )}
             <InlineText
               ariaLabel={`Número do card ${index + 1}`}
               className="inline-flex size-12 items-center justify-center rounded-full border border-[#B7B783] bg-[#F7F5EE] px-1 text-center text-xl font-semibold leading-none text-[#244F49]"
@@ -1275,6 +1331,19 @@ function EditableSyndicCards({
             </div>
           </article>
         ))}
+
+        {editable && (
+          <button
+            className="grid min-h-44 place-items-center border border-dashed border-[#B7B783] bg-transparent p-5 text-[#244F49] transition-colors hover:bg-white/55"
+            onClick={addSyndicCard}
+            type="button"
+          >
+            <span className="inline-flex items-center gap-2 rounded-full border border-dashed border-[#244F49]/45 px-4 py-2 text-sm font-semibold">
+              <Plus className="size-4" />
+              Adicionar card
+            </span>
+          </button>
+        )}
       </div>
     </section>
   )
@@ -1840,6 +1909,24 @@ function EditableSidebar({
   onRemoveAttorneyPhoto,
   textStyleProps,
 }: EditableSidebarProps) {
+  const sidebarBlocks = newsletter.sidebarBlocks ?? createDefaultSidebarBlocks()
+
+  function deleteSidebarBlock(blockId: string) {
+    onChange((draft) => {
+      draft.sidebarBlocks = (draft.sidebarBlocks ?? sidebarBlocks).filter(
+        (block) => block.id !== blockId
+      )
+    })
+  }
+
+  function addSidebarBlock(type: NewsletterSidebarBlock["type"]) {
+    const block = createSidebarBlock(type)
+
+    onChange((draft) => {
+      draft.sidebarBlocks = [...(draft.sidebarBlocks ?? sidebarBlocks), block]
+    })
+  }
+
   return (
     <aside
       className={cn(
@@ -1847,18 +1934,113 @@ function EditableSidebar({
         !isMobile && "lg:border-l lg:border-[#B7B783]/60 lg:pl-8"
       )}
     >
+      {sidebarBlocks.map((block) => (
+        <EditableSidebarBlock
+          key={block.id}
+          block={block}
+          editable={editable}
+          newsletter={newsletter}
+          onAttorneyPhotoChange={onAttorneyPhotoChange}
+          onChange={onChange}
+          onDelete={() => deleteSidebarBlock(block.id)}
+          onRemoveAttorneyPhoto={onRemoveAttorneyPhoto}
+          textStyleProps={textStyleProps}
+        />
+      ))}
+
+      {editable && <AddSidebarBlockBar onAdd={addSidebarBlock} />}
+    </aside>
+  )
+}
+
+type EditableSidebarBlockProps = {
+  block: NewsletterSidebarBlock
+  editable: boolean
+  newsletter: NewsletterTemplate
+  onAttorneyPhotoChange: (event: ChangeEvent<HTMLInputElement>) => void
+  onChange: (updater: (draft: NewsletterTemplate) => void) => void
+  onDelete: () => void
+  onRemoveAttorneyPhoto: () => void
+  textStyleProps: (fieldId: string) => {
+    onTextStyleChange: (style: NewsletterTextStyle) => void
+    textStyle: NewsletterTextStyle | undefined
+  }
+}
+
+function EditableSidebarBlock({
+  block,
+  editable,
+  newsletter,
+  onAttorneyPhotoChange,
+  onChange,
+  onDelete,
+  onRemoveAttorneyPhoto,
+  textStyleProps,
+}: EditableSidebarBlockProps) {
+  return (
+    <div className="group/sidebar-block relative">
+      {editable && (
+        <button
+          className="absolute right-3 top-3 z-30 grid size-8 place-items-center rounded-lg border border-black/10 bg-white/95 text-black/55 opacity-0 shadow-[0_10px_26px_rgba(0,0,0,0.12)] transition-colors transition-opacity hover:bg-black hover:text-white group-hover/sidebar-block:opacity-100 group-focus-within/sidebar-block:opacity-100"
+          onClick={onDelete}
+          title="Excluir bloco lateral"
+          type="button"
+        >
+          <Trash2 className="size-4" />
+          <span className="sr-only">Excluir bloco lateral</span>
+        </button>
+      )}
+
+      <EditableSidebarBlockContent
+        block={block}
+        editable={editable}
+        newsletter={newsletter}
+        onAttorneyPhotoChange={onAttorneyPhotoChange}
+        onChange={onChange}
+        onRemoveAttorneyPhoto={onRemoveAttorneyPhoto}
+        textStyleProps={textStyleProps}
+      />
+    </div>
+  )
+}
+
+function EditableSidebarBlockContent({
+  block,
+  editable,
+  newsletter,
+  onAttorneyPhotoChange,
+  onChange,
+  onRemoveAttorneyPhoto,
+  textStyleProps,
+}: Omit<EditableSidebarBlockProps, "onDelete">) {
+  if (block.type === "summary") {
+    return (
       <section className="border border-[#B7B783] bg-white p-6 shadow-[inset_0_4px_0_#244F49]">
         <InlineText
           ariaLabel="Síntese lateral do informativo"
           className="text-[16px] leading-8 text-[#303029]"
-          editable={false}
+          editable={editable}
           placeholder="Síntese objetiva do informativo."
           renderAs="p"
-          value="Entendimento útil para cobrança, negociação e gestão documental de débitos condominiais envolvendo unidades ocupadas pelo poder público."
-          onChange={() => undefined}
+          value={block.text}
+          onChange={(value) =>
+            onChange((draft) => {
+              draft.sidebarBlocks =
+                draft.sidebarBlocks ?? createDefaultSidebarBlocks()
+              const item = findSidebarBlock(draft, block.id, "summary")
+              if (item) {
+                item.text = value
+              }
+            })
+          }
+          {...textStyleProps(`sidebarBlocks.${block.id}.text`)}
         />
       </section>
+    )
+  }
 
+  if (block.type === "metadata") {
+    return (
       <section className="border border-[#B7B783]/80 bg-[#ECE8D8] p-6">
         <dl className="grid gap-3 text-sm">
           <EditableMetaRow
@@ -1896,7 +2078,11 @@ function EditableSidebar({
           />
         </dl>
       </section>
+    )
+  }
 
+  if (block.type === "attorney") {
+    return (
       <EditableAttorneyCard
         editable={editable}
         newsletter={newsletter}
@@ -1905,7 +2091,11 @@ function EditableSidebar({
         onRemoveAttorneyPhoto={onRemoveAttorneyPhoto}
         textStyleProps={textStyleProps}
       />
+    )
+  }
 
+  if (block.type === "source") {
+    return (
       <section className="border border-[#B7B783]/80 bg-white p-6">
         <InlineText
           ariaLabel="Fonte ou referência jurídica"
@@ -1922,7 +2112,218 @@ function EditableSidebar({
           {...textStyleProps("sourceDescription")}
         />
       </section>
-    </aside>
+    )
+  }
+
+  if (block.type === "sidebar-image") {
+    return (
+      <section className="border border-[#B7B783]/80 bg-white p-4">
+        <SidebarImagePicker
+          blockId={block.id}
+          editable={editable}
+          imageAlt={block.imageAlt}
+          imageUrl={block.imageUrl}
+          onChange={onChange}
+          type="sidebar-image"
+        />
+        <InlineText
+          ariaLabel="Legenda da imagem lateral"
+          className="mt-3 text-xs leading-6 text-[#404038]"
+          editable={editable}
+          placeholder="Legenda da imagem."
+          renderAs="p"
+          value={block.caption}
+          onChange={(value) =>
+            onChange((draft) => {
+              const item = findSidebarBlock(draft, block.id, "sidebar-image")
+              if (item) {
+                item.caption = value
+              }
+            })
+          }
+          {...textStyleProps(`sidebarBlocks.${block.id}.caption`)}
+        />
+      </section>
+    )
+  }
+
+  if (block.type === "sidebar-media-text") {
+    return (
+      <section className="border border-[#B7B783]/80 bg-white p-4">
+        <SidebarImagePicker
+          blockId={block.id}
+          editable={editable}
+          imageAlt={block.imageAlt}
+          imageUrl={block.imageUrl}
+          onChange={onChange}
+          type="sidebar-media-text"
+        />
+        <InlineText
+          ariaLabel="Título do bloco lateral com imagem"
+          className="mt-4 text-xl font-semibold leading-tight text-[#1F1F1A]"
+          editable={editable}
+          placeholder="Título do bloco"
+          renderAs="h3"
+          value={block.title}
+          onChange={(value) =>
+            onChange((draft) => {
+              const item = findSidebarBlock(
+                draft,
+                block.id,
+                "sidebar-media-text"
+              )
+              if (item) {
+                item.title = value
+              }
+            })
+          }
+          {...textStyleProps(`sidebarBlocks.${block.id}.title`)}
+        />
+        <InlineRichText
+          ariaLabel="Texto do bloco lateral com imagem"
+          className="mt-3 text-sm leading-7 text-[#404038]"
+          editable={editable}
+          placeholder="Escreva o texto de apoio."
+          segments={block.body}
+          onChange={(segments) =>
+            onChange((draft) => {
+              const item = findSidebarBlock(
+                draft,
+                block.id,
+                "sidebar-media-text"
+              )
+              if (item) {
+                item.body = segments
+              }
+            })
+          }
+          {...textStyleProps(`sidebarBlocks.${block.id}.body`)}
+        />
+      </section>
+    )
+  }
+
+  return (
+    <section className="border border-[#B7B783]/80 bg-white p-6">
+      <InlineText
+        ariaLabel="Título do bloco lateral"
+        className="text-xl font-semibold leading-tight text-[#1F1F1A]"
+        editable={editable}
+        placeholder="Título do bloco"
+        renderAs="h3"
+        value={block.title}
+        onChange={(value) =>
+          onChange((draft) => {
+            const item = findSidebarBlock(draft, block.id, "sidebar-text")
+            if (item) {
+              item.title = value
+            }
+          })
+        }
+        {...textStyleProps(`sidebarBlocks.${block.id}.title`)}
+      />
+      <InlineRichText
+        ariaLabel="Texto do bloco lateral"
+        className="mt-3 text-sm leading-7 text-[#404038]"
+        editable={editable}
+        placeholder="Escreva o conteúdo lateral."
+        segments={block.body}
+        onChange={(segments) =>
+          onChange((draft) => {
+            const item = findSidebarBlock(draft, block.id, "sidebar-text")
+            if (item) {
+              item.body = segments
+            }
+          })
+        }
+        {...textStyleProps(`sidebarBlocks.${block.id}.body`)}
+      />
+    </section>
+  )
+}
+
+type SidebarImagePickerProps = {
+  blockId: string
+  editable: boolean
+  imageAlt?: string
+  imageUrl?: string
+  onChange: (updater: (draft: NewsletterTemplate) => void) => void
+  type: "sidebar-image" | "sidebar-media-text"
+}
+
+function SidebarImagePicker({
+  blockId,
+  editable,
+  imageAlt,
+  imageUrl,
+  onChange,
+  type,
+}: SidebarImagePickerProps) {
+  return (
+    <div className="group/sidebar-image relative flex aspect-[4/3] min-h-48 items-center justify-center overflow-hidden bg-[#ECE8D8]">
+      {imageUrl ? (
+        <div
+          aria-label={imageAlt ?? "Imagem lateral"}
+          className="h-full w-full bg-cover bg-center"
+          role="img"
+          style={{ backgroundImage: `url(${imageUrl})` }}
+        />
+      ) : (
+        <div className="grid gap-3 text-center text-[#244F49]">
+          <ImageSymbol className="mx-auto size-9" />
+          <p className="text-sm font-semibold">Imagem lateral</p>
+        </div>
+      )}
+
+      {editable && (
+        <label className="absolute inset-0 grid cursor-pointer place-items-center bg-[#163B35]/0 text-sm font-semibold text-[#F7F5EE] opacity-0 transition-opacity group-hover/sidebar-image:bg-[#163B35]/70 group-hover/sidebar-image:opacity-100">
+          <span className="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-black">
+            <ImageIcon className="size-4" />
+            {imageUrl ? "Trocar imagem" : "Selecionar imagem"}
+          </span>
+          <input
+            accept="image/*"
+            className="sr-only"
+            type="file"
+            onChange={(event) =>
+              updateSidebarImageFromFile(event, onChange, blockId, type)
+            }
+          />
+        </label>
+      )}
+    </div>
+  )
+}
+
+function AddSidebarBlockBar({
+  onAdd,
+}: {
+  onAdd: (type: NewsletterSidebarBlock["type"]) => void
+}) {
+  return (
+    <div className="grid gap-2 rounded-xl border border-dashed border-black/20 bg-transparent p-4 text-black">
+      <span className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-black/45">
+        <Plus className="size-3.5" />
+        Novo bloco lateral
+      </span>
+      <div className="flex flex-wrap justify-center gap-2">
+        <AddSectionButton
+          icon={<FileText className="size-4" />}
+          label="Texto"
+          onClick={() => onAdd("sidebar-text")}
+        />
+        <AddSectionButton
+          icon={<ImageSymbol className="size-4" />}
+          label="Imagem"
+          onClick={() => onAdd("sidebar-image")}
+        />
+        <AddSectionButton
+          icon={<ImageIcon className="size-4" />}
+          label="Imagem + texto"
+          onClick={() => onAdd("sidebar-media-text")}
+        />
+      </div>
+    </div>
   )
 }
 
@@ -2401,6 +2802,104 @@ function initialsFromName(name: string) {
   return initials || "JJ"
 }
 
+function createDefaultSidebarBlocks(): NewsletterSidebarBlock[] {
+  return [
+    {
+      id: "sidebar-summary",
+      text: "Entendimento útil para cobrança, negociação e gestão documental de débitos condominiais envolvendo unidades ocupadas pelo poder público.",
+      type: "summary",
+    },
+    { id: "sidebar-metadata", type: "metadata" },
+    { id: "sidebar-attorney", type: "attorney" },
+    { id: "sidebar-source", type: "source" },
+  ]
+}
+
+function createSidebarBlock(
+  type: NewsletterSidebarBlock["type"]
+): NewsletterSidebarBlock {
+  const id = createContentId(type)
+
+  if (type === "summary") {
+    return {
+      id,
+      text: "Escreva uma síntese objetiva para a lateral do informativo.",
+      type,
+    }
+  }
+
+  if (type === "metadata") {
+    return { id, type }
+  }
+
+  if (type === "attorney") {
+    return { id, type }
+  }
+
+  if (type === "source") {
+    return { id, type }
+  }
+
+  if (type === "sidebar-image") {
+    return {
+      caption: "Legenda da imagem lateral.",
+      id,
+      type,
+    }
+  }
+
+  if (type === "sidebar-media-text") {
+    return {
+      body: [{ text: "Escreva o texto de apoio para esta imagem." }],
+      id,
+      title: "Imagem com texto",
+      type,
+    }
+  }
+
+  return {
+    body: [{ text: "Escreva aqui o novo conteúdo lateral." }],
+    id,
+    title: "Novo bloco lateral",
+    type,
+  }
+}
+
+function updateSidebarImageFromFile(
+  event: ChangeEvent<HTMLInputElement>,
+  onChange: (updater: (draft: NewsletterTemplate) => void) => void,
+  blockId: string,
+  type: "sidebar-image" | "sidebar-media-text"
+) {
+  const file = event.target.files?.[0]
+
+  if (!file) {
+    return
+  }
+
+  const url = URL.createObjectURL(file)
+
+  onChange((draft) => {
+    const item = findSidebarBlock(draft, blockId, type)
+    if (item) {
+      item.imageAlt = file.name
+      item.imageUrl = url
+    }
+  })
+  event.target.value = ""
+}
+
+function findSidebarBlock<T extends NewsletterSidebarBlock["type"]>(
+  newsletter: NewsletterTemplate,
+  id: string,
+  type: T
+) {
+  return newsletter.sidebarBlocks?.find(
+    (block): block is Extract<NewsletterSidebarBlock, { type: T }> =>
+      block.id === id && block.type === type
+  )
+}
+
 type LinkLabelPopoverButtonProps = {
   className?: string
   href: string
@@ -2503,6 +3002,10 @@ function LinkLabelPopoverButton({
 }
 
 function createSectionId(type: NewsletterCustomSection["type"]) {
+  return createContentId(type)
+}
+
+function createContentId(type: string) {
   const randomId =
     typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()

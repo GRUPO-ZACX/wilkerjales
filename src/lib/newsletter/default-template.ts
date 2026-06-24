@@ -126,6 +126,25 @@ export const defaultNewsletterTemplate: NewsletterTemplate = {
     href: "mailto:contato@jalesjales.adv.br",
   },
   customSections: [],
+  sidebarBlocks: [
+    {
+      id: "sidebar-summary",
+      text: "Entendimento útil para cobrança, negociação e gestão documental de débitos condominiais envolvendo unidades ocupadas pelo poder público.",
+      type: "summary",
+    },
+    {
+      id: "sidebar-metadata",
+      type: "metadata",
+    },
+    {
+      id: "sidebar-attorney",
+      type: "attorney",
+    },
+    {
+      id: "sidebar-source",
+      type: "source",
+    },
+  ],
   sourceTitle: "",
   sourceDescription:
     "Informativo baseado em entendimento do Superior Tribunal de Justiça sobre natureza da cota condominial, encargos moratórios e tratamento de unidade ocupada por órgão público.",
