@@ -40,6 +40,8 @@ import type {
 } from "yes@/lib/newsletter/types"
 import { cn } from "yes@/lib/utils"
 
+const FONT_SIZE_MAX = 100
+
 type InlineTextProps = {
   ariaLabel: string
   className?: string
@@ -507,7 +509,7 @@ function TextToolbar({
         <ToolbarRange
           icon={<Baseline className="size-4" />}
           label="Tamanho"
-          max={72}
+          max={FONT_SIZE_MAX}
           min={10}
           step={1}
           value={fontSize}
@@ -693,7 +695,7 @@ function RichTextToolbar({ editor, onChange, textStyle }: RichTextToolbarProps) 
         <ToolbarRange
           icon={<Baseline className="size-4" />}
           label="Tamanho"
-          max={72}
+          max={FONT_SIZE_MAX}
           min={10}
           step={1}
           value={fontSize}
