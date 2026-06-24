@@ -1910,6 +1910,13 @@ function EditableSidebar({
   textStyleProps,
 }: EditableSidebarProps) {
   const sidebarBlocks = newsletter.sidebarBlocks ?? createDefaultSidebarBlocks()
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  )
 
   function deleteSidebarBlock(blockId: string) {
     onChange((draft) => {
@@ -1927,6 +1934,44 @@ function EditableSidebar({
     })
   }
 
+  function moveSidebarBlock(blockId: string, direction: -1 | 1) {
+    const currentIndex = sidebarBlocks.findIndex((block) => block.id === blockId)
+    const nextIndex = currentIndex + direction
+
+    if (
+      currentIndex < 0 ||
+      nextIndex < 0 ||
+      nextIndex >= sidebarBlocks.length
+    ) {
+      return
+    }
+
+    onChange((draft) => {
+      draft.sidebarBlocks = arrayMove(sidebarBlocks, currentIndex, nextIndex)
+    })
+  }
+
+  function handleSidebarDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+
+    if (!over || active.id === over.id) {
+      return
+    }
+
+    const activeIndex = sidebarBlocks.findIndex(
+      (block) => block.id === active.id
+    )
+    const overIndex = sidebarBlocks.findIndex((block) => block.id === over.id)
+
+    if (activeIndex < 0 || overIndex < 0) {
+      return
+    }
+
+    onChange((draft) => {
+      draft.sidebarBlocks = arrayMove(sidebarBlocks, activeIndex, overIndex)
+    })
+  }
+
   return (
     <aside
       className={cn(
@@ -1934,19 +1979,49 @@ function EditableSidebar({
         !isMobile && "lg:border-l lg:border-[#B7B783]/60 lg:pl-8"
       )}
     >
-      {sidebarBlocks.map((block) => (
-        <EditableSidebarBlock
-          key={block.id}
-          block={block}
-          editable={editable}
-          newsletter={newsletter}
-          onAttorneyPhotoChange={onAttorneyPhotoChange}
-          onChange={onChange}
-          onDelete={() => deleteSidebarBlock(block.id)}
-          onRemoveAttorneyPhoto={onRemoveAttorneyPhoto}
-          textStyleProps={textStyleProps}
-        />
-      ))}
+      {editable ? (
+        <DndContext
+          collisionDetection={closestCenter}
+          id="newsletter-sidebar-block-sorter"
+          sensors={sensors}
+          onDragEnd={handleSidebarDragEnd}
+        >
+          <SortableContext
+            items={sidebarBlocks.map((block) => block.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            {sidebarBlocks.map((block, index) => (
+              <SortableEditableSidebarBlock
+                key={block.id}
+                block={block}
+                index={index}
+                newsletter={newsletter}
+                total={sidebarBlocks.length}
+                onAttorneyPhotoChange={onAttorneyPhotoChange}
+                onChange={onChange}
+                onDelete={() => deleteSidebarBlock(block.id)}
+                onMove={moveSidebarBlock}
+                onRemoveAttorneyPhoto={onRemoveAttorneyPhoto}
+                textStyleProps={textStyleProps}
+              />
+            ))}
+          </SortableContext>
+        </DndContext>
+      ) : (
+        sidebarBlocks.map((block) => (
+          <EditableSidebarBlock
+            key={block.id}
+            block={block}
+            editable={editable}
+            newsletter={newsletter}
+            onAttorneyPhotoChange={onAttorneyPhotoChange}
+            onChange={onChange}
+            onDelete={() => deleteSidebarBlock(block.id)}
+            onRemoveAttorneyPhoto={onRemoveAttorneyPhoto}
+            textStyleProps={textStyleProps}
+          />
+        ))
+      )}
 
       {editable && <AddSidebarBlockBar onAdd={addSidebarBlock} />}
     </aside>
@@ -1994,6 +2069,105 @@ function EditableSidebarBlock({
       <EditableSidebarBlockContent
         block={block}
         editable={editable}
+        newsletter={newsletter}
+        onAttorneyPhotoChange={onAttorneyPhotoChange}
+        onChange={onChange}
+        onRemoveAttorneyPhoto={onRemoveAttorneyPhoto}
+        textStyleProps={textStyleProps}
+      />
+    </div>
+  )
+}
+
+type SortableEditableSidebarBlockProps = Omit<
+  EditableSidebarBlockProps,
+  "editable"
+> & {
+  index: number
+  onMove: (blockId: string, direction: -1 | 1) => void
+  total: number
+}
+
+function SortableEditableSidebarBlock({
+  block,
+  index,
+  newsletter,
+  onAttorneyPhotoChange,
+  onChange,
+  onDelete,
+  onMove,
+  onRemoveAttorneyPhoto,
+  textStyleProps,
+  total,
+}: SortableEditableSidebarBlockProps) {
+  const {
+    attributes,
+    isDragging,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({ id: block.id })
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "group/sidebar-block relative min-w-0",
+        "rounded-sm outline outline-1 outline-transparent transition-[outline-color,box-shadow] focus-within:outline-[#B7B783]/80 hover:outline-[#B7B783]/80",
+        isDragging && "z-30 opacity-85 shadow-[0_22px_60px_rgba(22,59,53,0.2)]"
+      )}
+      style={style}
+    >
+      <div className="absolute right-3 top-3 z-30 flex items-center overflow-hidden rounded-lg border border-black/10 bg-white/95 text-black opacity-0 shadow-[0_10px_26px_rgba(0,0,0,0.12)] transition-opacity group-hover/sidebar-block:opacity-100 group-focus-within/sidebar-block:opacity-100">
+        <button
+          className="cursor-grab px-2 py-1.5 text-black/60 hover:bg-black/5 active:cursor-grabbing"
+          title="Arrastar bloco lateral"
+          type="button"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="size-4" />
+          <span className="sr-only">Arrastar bloco lateral</span>
+        </button>
+        <button
+          className="border-l border-black/10 px-2 py-1.5 text-black/60 hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-35"
+          disabled={index === 0}
+          onClick={() => onMove(block.id, -1)}
+          title="Mover bloco lateral para cima"
+          type="button"
+        >
+          <ArrowUp className="size-4" />
+          <span className="sr-only">Mover bloco lateral para cima</span>
+        </button>
+        <button
+          className="border-l border-black/10 px-2 py-1.5 text-black/60 hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-35"
+          disabled={index === total - 1}
+          onClick={() => onMove(block.id, 1)}
+          title="Mover bloco lateral para baixo"
+          type="button"
+        >
+          <ArrowDown className="size-4" />
+          <span className="sr-only">Mover bloco lateral para baixo</span>
+        </button>
+        <button
+          className="border-l border-black/10 px-2 py-1.5 text-black/60 hover:bg-black/5"
+          onClick={onDelete}
+          title="Excluir bloco lateral"
+          type="button"
+        >
+          <Trash2 className="size-4" />
+          <span className="sr-only">Excluir bloco lateral</span>
+        </button>
+      </div>
+
+      <EditableSidebarBlockContent
+        block={block}
+        editable
         newsletter={newsletter}
         onAttorneyPhotoChange={onAttorneyPhotoChange}
         onChange={onChange}
