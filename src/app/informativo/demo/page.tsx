@@ -11,6 +11,10 @@ export const metadata: Metadata = {
 
 export default function DemoInformativoPage() {
   return (
-    <NewsletterRenderer newsletter={defaultNewsletterTemplate} mode="public" />
+    <NewsletterRenderer
+      newsletter={defaultNewsletterTemplate}
+      mode="public"
+      printHref="/api/informativos/demo/pdf"
+    />
   )
 }

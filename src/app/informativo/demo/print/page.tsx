@@ -6,7 +6,7 @@ import { defaultNewsletterTemplate } from "yes@/lib/newsletter/default-template"
 export const metadata: Metadata = {
   title: "Print | Informativo Condominial",
   description:
-    "Versão preparada para impressão do informativo demo, sem geração real de PDF.",
+    "Versão preparada para impressão e geração de PDF do informativo demo.",
 }
 
 export default function PrintInformativoPage() {

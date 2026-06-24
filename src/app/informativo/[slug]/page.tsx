@@ -41,7 +41,7 @@ export default async function PublicInformativoPage({
     <NewsletterRenderer
       newsletter={newsletter}
       mode="public"
-      printHref={`/informativo/${slug}/print`}
+      printHref={`/api/informativos/${slug}/pdf`}
     />
   )
 }

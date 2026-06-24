@@ -188,7 +188,7 @@ function normalizeTextStyles(value: unknown) {
     }
 
     if (typeof rawStyle.fontSize === "number") {
-      style.fontSize = clamp(rawStyle.fontSize, 10, 96)
+      style.fontSize = clamp(rawStyle.fontSize, 10, 100)
     }
 
     if (rawStyle.fontFamily === "sans" || rawStyle.fontFamily === "serif") {
