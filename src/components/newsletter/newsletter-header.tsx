@@ -23,8 +23,8 @@ export function NewsletterHeader({ newsletter }: NewsletterHeaderProps) {
         <div className="w-40 bg-[#B7B783]" />
       </div>
 
-      <div className="mx-auto grid w-full max-w-[1280px] gap-6 sm:grid-cols-[1fr_1.45fr_1fr] sm:items-center">
-        <div className="min-w-0 space-y-1 text-[11px] font-bold uppercase tracking-[0.24em] text-[#244F49] [overflow-wrap:anywhere]">
+      <div className="mx-auto grid w-full max-w-[1280px] gap-6 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.45fr)_minmax(0,1fr)] sm:items-center">
+        <div className="min-w-0 space-y-1 text-[11px] font-bold uppercase leading-5 tracking-[0.18em] text-[#244F49] [overflow-wrap:anywhere]">
           <p>{collection}</p>
           <p className="text-[#6D714C]">{period}</p>
         </div>
@@ -43,16 +43,16 @@ export function NewsletterHeader({ newsletter }: NewsletterHeaderProps) {
             )}
           </div>
           <div className="min-w-0">
-            <p className="text-[25px] font-semibold leading-none tracking-[-0.02em] text-[#1F1F1A] [overflow-wrap:anywhere]">
+            <p className="text-[25px] font-semibold leading-tight tracking-[-0.02em] text-[#1F1F1A] [overflow-wrap:anywhere]">
               {firmName}
             </p>
-            <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.34em] text-[#244F49] [overflow-wrap:anywhere]">
+            <p className="mt-1 text-[10px] font-bold uppercase leading-5 tracking-[0.2em] text-[#244F49] [overflow-wrap:anywhere]">
               {firmDescriptor}
             </p>
           </div>
         </div>
 
-        <div className="min-w-0 space-y-1 text-[11px] font-bold uppercase tracking-[0.24em] text-[#244F49] [overflow-wrap:anywhere] sm:text-right">
+        <div className="min-w-0 space-y-1 text-[11px] font-bold uppercase leading-5 tracking-[0.18em] text-[#244F49] [overflow-wrap:anywhere] sm:text-right">
           <p>{issue}</p>
           <p className="text-[#6D714C]">{label}</p>
         </div>

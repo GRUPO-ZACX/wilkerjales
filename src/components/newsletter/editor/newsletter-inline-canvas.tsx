@@ -730,11 +730,11 @@ function EditableNewsletterHeader({
             : "max-w-[1280px] sm:grid-cols-[1fr_1.45fr_1fr] sm:items-center"
         )}
       >
-        <div className="min-w-0 space-y-1 text-[11px] font-bold uppercase tracking-[0.24em] text-[#244F49] [overflow-wrap:anywhere]">
+        <div className="min-w-0 space-y-1 text-[11px] font-bold uppercase leading-5 tracking-[0.18em] text-[#244F49] [overflow-wrap:anywhere]">
           <InlineText
             ariaLabel="Coleção"
             editable={editable}
-            multiline={false}
+            multiline
             placeholder="COLEÇÃO"
             value={collection}
             onChange={(value) =>
@@ -747,7 +747,7 @@ function EditableNewsletterHeader({
             ariaLabel="Período"
             className="text-[#6D714C]"
             editable={editable}
-            multiline={false}
+            multiline
             placeholder="PERÍODO"
             value={period}
             onChange={(value) =>
@@ -774,11 +774,11 @@ function EditableNewsletterHeader({
             <InlineText
               ariaLabel="Nome do escritório"
               className={cn(
-                "font-semibold leading-none tracking-[-0.02em] text-[#1F1F1A]",
+                "font-semibold leading-tight tracking-[-0.02em] text-[#1F1F1A]",
                 isMobile ? "text-[21px]" : "text-[25px]"
               )}
               editable={editable}
-              multiline={false}
+              multiline
               placeholder="Nome do escritório"
               value={firmName}
               onChange={(value) =>
@@ -790,11 +790,11 @@ function EditableNewsletterHeader({
             <InlineText
               ariaLabel="Descrição do escritório"
               className={cn(
-                "mt-1 text-[10px] font-bold uppercase text-[#244F49]",
-                isMobile ? "tracking-[0.22em]" : "tracking-[0.34em]"
+                "mt-1 text-[10px] font-bold uppercase leading-5 text-[#244F49]",
+                isMobile ? "tracking-[0.16em]" : "tracking-[0.2em]"
               )}
               editable={editable}
-              multiline={false}
+              multiline
               placeholder="Advogados Associados"
               value={firmDescriptor}
               onChange={(value) =>
@@ -808,14 +808,14 @@ function EditableNewsletterHeader({
 
         <div
           className={cn(
-            "min-w-0 space-y-1 text-[11px] font-bold uppercase tracking-[0.24em] text-[#244F49] [overflow-wrap:anywhere]",
+            "min-w-0 space-y-1 text-[11px] font-bold uppercase leading-5 tracking-[0.18em] text-[#244F49] [overflow-wrap:anywhere]",
             !isMobile && "sm:text-right"
           )}
         >
           <InlineText
             ariaLabel="Número da edição"
             editable={editable}
-            multiline={false}
+            multiline
             placeholder="EDIÇÃO"
             value={issue}
             onChange={(value) =>
@@ -828,7 +828,7 @@ function EditableNewsletterHeader({
             ariaLabel="Tipo de informativo"
             className="text-[#6D714C]"
             editable={editable}
-            multiline={false}
+            multiline
             placeholder="Informativo"
             value={label}
             onChange={(value) =>
