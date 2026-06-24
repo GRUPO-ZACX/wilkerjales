@@ -48,6 +48,10 @@ export const newsletterSectionMeta: Record<
     label: "Botão",
     description: "Chamada independente com link.",
   },
+  "custom-media-text": {
+    label: "Imagem + texto",
+    description: "Seção com imagem ao lado ou acima do texto.",
+  },
 }
 
 const knownSectionTypes = new Set<NewsletterSectionType>(

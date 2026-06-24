@@ -39,12 +39,19 @@ export function newsletterTextStyleCss(
     !style.color &&
     typeof style.fontSize !== "number" &&
     typeof style.letterSpacing !== "number" &&
-    typeof style.lineHeight !== "number"
+    typeof style.lineHeight !== "number" &&
+    typeof style.blockWidth !== "number"
   ) {
     return undefined
   }
 
+  const blockAlignment =
+    typeof style.blockWidth === "number" && style.blockWidth < 100
+      ? blockAlignmentStyle(style.align)
+      : {}
+
   return {
+    ...blockAlignment,
     color: style.color,
     fontSize:
       typeof style.fontSize === "number" ? `${style.fontSize}px` : undefined,
@@ -54,5 +61,28 @@ export function newsletterTextStyleCss(
         : undefined,
     lineHeight:
       typeof style.lineHeight === "number" ? style.lineHeight : undefined,
+    maxWidth:
+      typeof style.blockWidth === "number" ? `${style.blockWidth}%` : undefined,
+  }
+}
+
+function blockAlignmentStyle(align: NewsletterTextStyle["align"]) {
+  if (align === "center") {
+    return {
+      marginLeft: "auto",
+      marginRight: "auto",
+    }
+  }
+
+  if (align === "right") {
+    return {
+      marginLeft: "auto",
+      marginRight: "0",
+    }
+  }
+
+  return {
+    marginLeft: "0",
+    marginRight: "auto",
   }
 }

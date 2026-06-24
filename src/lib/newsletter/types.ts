@@ -25,6 +25,7 @@ export type NewsletterFirm = {
 
 export type NewsletterTextStyle = {
   align?: "left" | "center" | "right"
+  blockWidth?: number
   bold?: boolean
   color?: string
   fontFamily?: "sans" | "serif"
@@ -101,10 +102,21 @@ export type NewsletterCustomButtonSection = {
   href: string
 }
 
+export type NewsletterCustomMediaTextSection = {
+  id: string
+  type: "custom-media-text"
+  body: RichTextSegment[]
+  imageAlt?: string
+  imageUrl?: string
+  layout: "image-left" | "image-right" | "image-top"
+  title: string
+}
+
 export type NewsletterCustomSection =
   | NewsletterCustomTextSection
   | NewsletterCustomImageSection
   | NewsletterCustomButtonSection
+  | NewsletterCustomMediaTextSection
 
 export type NewsletterSectionType =
   | "hero"
@@ -115,6 +127,7 @@ export type NewsletterSectionType =
   | "custom-text"
   | "custom-image"
   | "custom-button"
+  | "custom-media-text"
 
 export type NewsletterSection = {
   hidden?: boolean

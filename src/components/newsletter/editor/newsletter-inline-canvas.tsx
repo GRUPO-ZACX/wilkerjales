@@ -174,12 +174,12 @@ export function NewsletterInlineCanvas({
 
       draft.customSections = [...(draft.customSections ?? []), customSection]
       draft.sections = [
+        ...currentVisibleSections,
         {
           id,
-          order: 0,
+          order: currentVisibleSections.length,
           type,
         },
-        ...currentVisibleSections,
         ...currentHiddenSections,
       ].map((section, index) => ({ ...section, order: index }))
     })
@@ -325,7 +325,6 @@ export function NewsletterInlineCanvas({
           <div className={cn("min-w-0", isMobile ? "space-y-10" : "space-y-14")}>
             {editable ? (
               <>
-                <AddSectionBar onAdd={addCustomSection} />
                 <DndContext
                   collisionDetection={closestCenter}
                   id="newsletter-inline-section-sorter"
@@ -359,6 +358,7 @@ export function NewsletterInlineCanvas({
                     ))}
                   </SortableContext>
                 </DndContext>
+                <AddSectionBar onAdd={addCustomSection} />
               </>
             ) : (
               visibleSections.map((section) => (
@@ -519,6 +519,19 @@ function NewsletterContentSection({
     )
   }
 
+  if (type === "custom-media-text") {
+    return (
+      <EditableCustomMediaTextSection
+        editable={editable}
+        isMobile={isMobile}
+        newsletter={newsletter}
+        section={section}
+        onChange={onChange}
+        textStyleProps={textStyleProps}
+      />
+    )
+  }
+
   return null
 }
 
@@ -528,7 +541,7 @@ type AddSectionBarProps = {
 
 function AddSectionBar({ onAdd }: AddSectionBarProps) {
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-black/10 bg-white p-2 text-black shadow-[0_10px_30px_rgba(0,0,0,0.06)]">
+    <div className="flex flex-wrap items-center justify-center gap-2 rounded-xl border border-dashed border-black/20 bg-transparent p-4 text-black">
       <span className="inline-flex items-center gap-1.5 px-2 text-xs font-semibold uppercase tracking-[0.12em] text-black/45">
         <Plus className="size-3.5" />
         Nova seção
@@ -548,6 +561,11 @@ function AddSectionBar({ onAdd }: AddSectionBarProps) {
         label="Botão"
         onClick={() => onAdd("custom-button")}
       />
+      <AddSectionButton
+        icon={<ImageSymbol className="size-4" />}
+        label="Imagem + texto"
+        onClick={() => onAdd("custom-media-text")}
+      />
     </div>
   )
 }
@@ -561,7 +579,7 @@ type AddSectionButtonProps = {
 function AddSectionButton({ icon, label, onClick }: AddSectionButtonProps) {
   return (
     <button
-      className="inline-flex h-9 items-center gap-2 rounded-lg border border-black/10 bg-white px-3 text-xs font-semibold text-black transition-colors hover:bg-black hover:text-white"
+      className="inline-flex h-9 items-center gap-2 rounded-lg border border-dashed border-black/20 bg-transparent px-3 text-xs font-semibold text-black/65 transition-colors hover:border-black hover:bg-black hover:text-white"
       onClick={(event) => {
         event.preventDefault()
         event.stopPropagation()
@@ -979,7 +997,7 @@ function EditableDecisionBox({
       >
         {topics.map((topic, index) => (
           <article
-            key={`${index}-${topic.title}`}
+            key={`decision-topic-${index}`}
             className="grid grid-cols-[42px_minmax(0,1fr)] gap-4 border-b border-[#B7B783]/70 py-5"
           >
             <span className="pt-1 text-2xl font-semibold leading-none text-[#244F49]">
@@ -1041,7 +1059,7 @@ function EditableBody({
 
         return (
           <article
-            key={`${index}-${block.title}`}
+            key={`body-block-${index}`}
             className="grid grid-cols-[5px_minmax(0,1fr)] gap-5"
           >
             <div className="bg-[#244F49]" />
@@ -1101,7 +1119,7 @@ function EditableBody({
               <div className="mt-5 space-y-5 text-[16px] leading-8 text-[#404038] [overflow-wrap:anywhere]">
                 {paragraphs.map((paragraph, paragraphIndex) => (
                   <div
-                    key={`${paragraphIndex}-${paragraph}`}
+                    key={`body-block-${index}-paragraph-${paragraphIndex}`}
                     className="group/paragraph relative"
                   >
                     <InlineText
@@ -1208,7 +1226,7 @@ function EditableSyndicCards({
       >
         {cards.map((card, index) => (
           <article
-            key={`${index}-${card.number}`}
+            key={`syndic-card-${index}`}
             className="relative grid min-h-44 grid-cols-[58px_minmax(0,1fr)] gap-5 border border-[#B7B783] bg-white p-5 shadow-[inset_4px_0_0_#244F49]"
           >
             <InlineText
@@ -1319,22 +1337,18 @@ function EditableCta({
 
         <div className="min-w-0">
           {editable ? (
-            <div className="inline-flex w-fit max-w-full items-center gap-2 rounded-sm bg-[#B7B783] px-5 py-3 text-sm font-semibold uppercase tracking-[0.14em] text-[#163B35]">
-              <InlineText
-                ariaLabel="Texto do botão do CTA"
-                editable
-                multiline={false}
-                placeholder="Falar com o escritório"
-                value={label}
-                onChange={(value) =>
-                  onChange((draft) => {
-                    draft.cta.label = value
-                  })
-                }
-                {...textStyleProps("cta.label")}
-              />
-              <ArrowRight className="size-4 shrink-0" />
-            </div>
+            <LinkLabelPopoverButton
+              className="bg-[#B7B783] text-[#163B35] hover:bg-[#F7F5EE]"
+              href={cta.href}
+              label={label}
+              labelPlaceholder="Falar com o escritório"
+              onChange={({ href, label }) =>
+                onChange((draft) => {
+                  draft.cta.href = href
+                  draft.cta.label = label
+                })
+              }
+            />
           ) : (
             <Link
               className="inline-flex w-fit max-w-full items-center gap-2 rounded-sm bg-[#B7B783] px-5 py-3 text-sm font-semibold uppercase tracking-[0.14em] text-[#163B35] transition-colors hover:bg-[#F7F5EE]"
@@ -1343,19 +1357,6 @@ function EditableCta({
               <span className="[overflow-wrap:anywhere]">{label}</span>
               <ArrowRight className="size-4 shrink-0" />
             </Link>
-          )}
-
-          {editable && (
-            <LinkPopoverButton
-              className="mt-3"
-              contrast="dark"
-              value={cta.href}
-              onChange={(href) =>
-                onChange((draft) => {
-                  draft.cta.href = href
-                })
-              }
-            />
           )}
         </div>
       </div>
@@ -1531,6 +1532,184 @@ function updateCustomImageFromFile(
   event.target.value = ""
 }
 
+function EditableCustomMediaTextSection({
+  editable,
+  isMobile,
+  newsletter,
+  onChange,
+  section,
+  textStyleProps,
+}: Omit<NewsletterContentSectionProps, "type">) {
+  const customSection = newsletter.customSections?.find(
+    (item) => item.id === section.id && item.type === "custom-media-text"
+  )
+
+  if (!customSection || customSection.type !== "custom-media-text") {
+    return null
+  }
+
+  const isImageTop = isMobile || customSection.layout === "image-top"
+  const imageFirst = customSection.layout !== "image-right"
+
+  const imageBlock = (
+    <div className="group/custom-media relative flex aspect-[4/3] min-h-56 items-center justify-center overflow-hidden bg-[#ECE8D8]">
+      {customSection.imageUrl ? (
+        <div
+          aria-label={customSection.imageAlt ?? "Imagem do informativo"}
+          className="h-full w-full bg-cover bg-center"
+          role="img"
+          style={{ backgroundImage: `url(${customSection.imageUrl})` }}
+        />
+      ) : (
+        <div className="grid gap-4 text-center text-[#244F49]">
+          <ImageSymbol className="mx-auto size-10" />
+          <p className="text-sm font-semibold">Imagem da seção</p>
+        </div>
+      )}
+
+      {editable && (
+        <label className="absolute inset-0 grid cursor-pointer place-items-center bg-[#163B35]/0 text-sm font-semibold text-[#F7F5EE] opacity-0 transition-opacity group-hover/custom-media:bg-[#163B35]/70 group-hover/custom-media:opacity-100">
+          <span className="inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-black">
+            <ImageIcon className="size-4" />
+            {customSection.imageUrl ? "Trocar imagem" : "Selecionar imagem"}
+          </span>
+          <input
+            accept="image/*"
+            className="sr-only"
+            type="file"
+            onChange={(event) =>
+              updateCustomMediaTextImageFromFile(event, onChange, section.id)
+            }
+          />
+        </label>
+      )}
+    </div>
+  )
+
+  const textBlock = (
+    <div className="min-w-0">
+      {editable && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          {(["image-left", "image-right", "image-top"] as const).map(
+            (layout) => (
+              <BlockActionButton
+                key={layout}
+                icon={<ImageSymbol className="size-3.5" />}
+                label={
+                  layout === "image-left"
+                    ? "Imagem esquerda"
+                    : layout === "image-right"
+                      ? "Imagem direita"
+                      : "Imagem acima"
+                }
+                onClick={() =>
+                  onChange((draft) => {
+                    const item = findCustomSection(
+                      draft,
+                      section.id,
+                      "custom-media-text"
+                    )
+                    if (item) {
+                      item.layout = layout
+                    }
+                  })
+                }
+              />
+            )
+          )}
+        </div>
+      )}
+      <InlineText
+        ariaLabel="Título da seção com imagem e texto"
+        className="text-[28px] font-semibold leading-tight tracking-[-0.02em] text-[#1F1F1A]"
+        editable={editable}
+        placeholder="Título da seção"
+        renderAs="h2"
+        value={customSection.title}
+        onChange={(value) =>
+          onChange((draft) => {
+            const item = findCustomSection(
+              draft,
+              section.id,
+              "custom-media-text"
+            )
+            if (item) {
+              item.title = value
+            }
+          })
+        }
+        {...textStyleProps(`customSections.${section.id}.title`)}
+      />
+      <InlineRichText
+        ariaLabel="Texto da seção com imagem"
+        className="mt-4 text-[16px] leading-8 text-[#404038]"
+        editable={editable}
+        placeholder="Escreva o texto de apoio para esta imagem."
+        segments={customSection.body}
+        onChange={(segments) =>
+          onChange((draft) => {
+            const item = findCustomSection(
+              draft,
+              section.id,
+              "custom-media-text"
+            )
+            if (item) {
+              item.body = segments
+            }
+          })
+        }
+        {...textStyleProps(`customSections.${section.id}.body`)}
+      />
+    </div>
+  )
+
+  return (
+    <section className="border border-[#B7B783]/80 bg-white p-5">
+      <div
+        className={cn(
+          "grid gap-6",
+          isImageTop ? "grid-cols-1" : "grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)]"
+        )}
+      >
+        {imageFirst ? (
+          <>
+            {imageBlock}
+            {textBlock}
+          </>
+        ) : (
+          <>
+            {textBlock}
+            {imageBlock}
+          </>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function updateCustomMediaTextImageFromFile(
+  event: ChangeEvent<HTMLInputElement>,
+  onChange: (updater: (draft: NewsletterTemplate) => void) => void,
+  sectionId: string
+) {
+  const file = event.target.files?.[0]
+
+  if (!file) {
+    return
+  }
+
+  const url = URL.createObjectURL(file)
+
+  onChange((draft) => {
+    const item = findCustomSection(draft, sectionId, "custom-media-text")
+    if (item) {
+      item.imageAlt = file.name
+      item.imageUrl = url
+    }
+  })
+  event.target.value = ""
+}
+
 function EditableCustomButtonSection({
   editable,
   isMobile,
@@ -1605,29 +1784,25 @@ function EditableCustomButtonSection({
 
         <div className="min-w-0">
           {editable ? (
-            <div className="inline-flex w-fit max-w-full items-center gap-2 rounded-sm bg-[#244F49] px-5 py-3 text-sm font-semibold uppercase tracking-[0.14em] text-[#F7F5EE]">
-              <InlineText
-                ariaLabel="Texto do botão"
-                editable
-                multiline={false}
-                placeholder="Abrir link"
-                value={label}
-                onChange={(value) =>
-                  onChange((draft) => {
-                    const item = findCustomSection(
-                      draft,
-                      section.id,
-                      "custom-button"
-                    )
-                    if (item) {
-                      item.label = value
-                    }
-                  })
-                }
-                {...textStyleProps(`customSections.${section.id}.label`)}
-              />
-              <ArrowRight className="size-4 shrink-0" />
-            </div>
+            <LinkLabelPopoverButton
+              className="bg-[#244F49] text-[#F7F5EE] hover:bg-[#163B35]"
+              href={customSection.href}
+              label={label}
+              labelPlaceholder="Abrir link"
+              onChange={({ href, label }) =>
+                onChange((draft) => {
+                  const item = findCustomSection(
+                    draft,
+                    section.id,
+                    "custom-button"
+                  )
+                  if (item) {
+                    item.href = href
+                    item.label = label
+                  }
+                })
+              }
+            />
           ) : (
             <Link
               className="inline-flex w-fit max-w-full items-center gap-2 rounded-sm bg-[#244F49] px-5 py-3 text-sm font-semibold uppercase tracking-[0.14em] text-[#F7F5EE] transition-colors hover:bg-[#163B35]"
@@ -1636,24 +1811,6 @@ function EditableCustomButtonSection({
               <span className="[overflow-wrap:anywhere]">{label}</span>
               <ArrowRight className="size-4 shrink-0" />
             </Link>
-          )}
-          {editable && (
-            <LinkPopoverButton
-              className="mt-3"
-              value={customSection.href}
-              onChange={(value) =>
-                onChange((draft) => {
-                  const item = findCustomSection(
-                    draft,
-                    section.id,
-                    "custom-button"
-                  )
-                  if (item) {
-                    item.href = value
-                  }
-                })
-              }
-            />
           )}
         </div>
       </div>
@@ -1950,9 +2107,9 @@ function EditableNewsletterFooter({
         <div className="min-w-0">
           <InlineText
             ariaLabel="Nome do escritório no rodapé"
-            className="text-lg font-semibold leading-none text-[#1F1F1A]"
+            className="text-lg font-semibold leading-tight text-[#1F1F1A]"
             editable={editable}
-            multiline={false}
+            multiline
             placeholder="Nome do escritório"
             renderAs="p"
             value={newsletter.firm.name}
@@ -1965,9 +2122,9 @@ function EditableNewsletterFooter({
           />
           <InlineText
             ariaLabel="Descrição do escritório no rodapé"
-            className="mt-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-[#244F49]"
+            className="mt-1 text-[10px] font-semibold uppercase leading-5 tracking-[0.18em] text-[#244F49]"
             editable={editable}
-            multiline={false}
+            multiline
             placeholder="Advogados Associados"
             renderAs="p"
             value={newsletter.firm.descriptor}
@@ -2004,6 +2161,12 @@ function EditableNewsletterFooter({
                       draft.contacts[index].label,
                       value
                     )
+                  })
+                }
+                onHrefChange={(href) =>
+                  onChange((draft) => {
+                    ensureContact(draft.contacts, index, contact.label)
+                    draft.contacts[index].href = href
                   })
                 }
                 textStyleProps={textStyleProps(`contacts.${index}.value`)}
@@ -2086,6 +2249,9 @@ function EditableFooterLink({
   onHrefChange,
   textStyleProps,
 }: EditableFooterLinkProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [draftHref, setDraftHref] = useState(contact.href)
+  const [draftValue, setDraftValue] = useState(contact.value)
   const value = contact.value.trim() || contact.label
   const href = contact.href.trim() || "#"
   const content = (
@@ -2104,13 +2270,79 @@ function EditableFooterLink({
   )
 
   if (editable) {
+    function openEditor() {
+      setDraftValue(value)
+      setDraftHref(contact.href || hrefForContact(contact.label, value))
+      setIsOpen((current) => !current)
+    }
+
+    function applyChanges() {
+      const nextValue = draftValue.trim() || contact.label
+      const nextHref =
+        draftHref.trim() || hrefForContact(contact.label, nextValue)
+
+      onChange(nextValue)
+      onHrefChange?.(nextHref)
+      setIsOpen(false)
+    }
+
     return (
-      <span className="inline-flex max-w-full flex-col gap-1">
-        <span className="inline-flex max-w-full items-center gap-2 text-xs font-semibold text-[#1F1F1A]">
-          {content}
-        </span>
-        {onHrefChange && (
-          <LinkPopoverButton value={contact.href} onChange={onHrefChange} />
+      <span className="relative inline-flex max-w-full">
+        <button
+          className="inline-flex max-w-full items-center gap-2 rounded-sm border border-transparent px-1 py-0.5 text-xs font-semibold text-[#1F1F1A] transition-colors hover:border-[#B7B783]/70 hover:bg-white/45"
+          onClick={openEditor}
+          type="button"
+        >
+          <Icon className="size-4 shrink-0 text-[#244F49]" />
+          <span className="min-w-0 [overflow-wrap:anywhere]">{value}</span>
+        </button>
+
+        {isOpen && (
+          <span
+            className="absolute right-0 top-8 z-50 grid w-[min(420px,calc(100vw-32px))] gap-2 rounded-xl border border-black/10 bg-white p-3 text-left text-black shadow-[0_18px_48px_rgba(0,0,0,0.16)]"
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            <label className="grid gap-1 text-xs font-semibold text-black/55">
+              Texto exibido
+              <input
+                className="h-10 rounded-lg border border-black/15 px-3 text-sm text-black outline-none focus:border-black/45"
+                placeholder={contact.label}
+                value={draftValue}
+                onChange={(event) => setDraftValue(event.target.value)}
+              />
+            </label>
+            <label className="grid gap-1 text-xs font-semibold text-black/55">
+              Link
+              <input
+                className="h-10 rounded-lg border border-black/15 px-3 text-sm text-black outline-none focus:border-black/45"
+                placeholder="https://..."
+                value={draftHref}
+                onChange={(event) => setDraftHref(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault()
+                    applyChanges()
+                  }
+                }}
+              />
+            </label>
+            <div className="flex justify-end gap-2">
+              <button
+                className="h-9 rounded-lg border border-black/10 px-3 text-xs font-semibold text-black hover:bg-black/5"
+                onClick={() => setIsOpen(false)}
+                type="button"
+              >
+                Cancelar
+              </button>
+              <button
+                className="h-9 rounded-lg bg-black px-3 text-xs font-semibold text-white hover:bg-black/80"
+                onClick={applyChanges}
+                type="button"
+              >
+                Aplicar
+              </button>
+            </div>
+          </span>
         )}
       </span>
     )
@@ -2169,65 +2401,101 @@ function initialsFromName(name: string) {
   return initials || "JJ"
 }
 
-type LinkPopoverButtonProps = {
+type LinkLabelPopoverButtonProps = {
   className?: string
-  contrast?: "dark" | "light"
-  onChange: (value: string) => void
-  value: string
+  href: string
+  label: string
+  labelPlaceholder: string
+  onChange: (value: { href: string; label: string }) => void
 }
 
-function LinkPopoverButton({
+function LinkLabelPopoverButton({
   className,
-  contrast = "light",
+  href,
+  label,
+  labelPlaceholder,
   onChange,
-  value,
-}: LinkPopoverButtonProps) {
+}: LinkLabelPopoverButtonProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const [draftValue, setDraftValue] = useState(value)
+  const [draftHref, setDraftHref] = useState(href)
+  const [draftLabel, setDraftLabel] = useState(label)
+
+  function openEditor() {
+    setDraftHref(href)
+    setDraftLabel(label)
+    setIsOpen((current) => !current)
+  }
+
+  function applyChanges() {
+    onChange({
+      href: draftHref.trim() || "#",
+      label: draftLabel.trim() || labelPlaceholder,
+    })
+    setIsOpen(false)
+  }
 
   return (
-    <span className={cn("relative inline-flex", className)}>
+    <span className="relative inline-flex max-w-full">
       <button
         className={cn(
-          "inline-flex h-8 items-center gap-1.5 rounded-md border px-2.5 text-xs font-semibold",
-          contrast === "dark"
-            ? "border-[#F7F5EE]/25 bg-[#F7F5EE]/10 text-[#F7F5EE] hover:bg-[#F7F5EE]/15"
-            : "border-black/10 bg-white text-black hover:bg-black/5"
+          "inline-flex w-fit max-w-full items-center gap-2 rounded-sm px-5 py-3 text-sm font-semibold uppercase tracking-[0.14em] transition-colors",
+          className
         )}
-        onClick={() => {
-          setDraftValue(value)
-          setIsOpen((current) => !current)
-        }}
+        onPointerDown={(event) => event.stopPropagation()}
+        onClick={openEditor}
         type="button"
       >
-        <Link2 className="size-3.5" />
-        Link
+        <span className="[overflow-wrap:anywhere]">
+          {label || labelPlaceholder}
+        </span>
+        <ArrowRight className="size-4 shrink-0" />
       </button>
+
       {isOpen && (
-        <span className="absolute left-0 top-10 z-40 flex w-[min(420px,calc(100vw-32px))] items-center gap-2 rounded-xl border border-black/10 bg-white p-2.5 text-black shadow-[0_18px_48px_rgba(0,0,0,0.16)]">
-          <input
-            className="h-11 min-w-0 flex-1 rounded-lg border border-black/15 px-3 text-sm outline-none focus:border-black/45"
-            placeholder="https://..."
-            value={draftValue}
-            onChange={(event) => setDraftValue(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault()
-                onChange(draftValue)
-                setIsOpen(false)
-              }
-            }}
-          />
-          <button
-            className="h-11 rounded-lg bg-black px-4 text-sm font-semibold text-white"
-            onClick={() => {
-              onChange(draftValue)
-              setIsOpen(false)
-            }}
-            type="button"
-          >
-            OK
-          </button>
+        <span
+          className="absolute left-0 top-14 z-50 grid w-[min(420px,calc(100vw-32px))] gap-2 rounded-xl border border-black/10 bg-white p-3 text-black shadow-[0_18px_48px_rgba(0,0,0,0.16)]"
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <label className="grid gap-1 text-xs font-semibold text-black/55">
+            Texto do botão
+            <input
+              className="h-10 rounded-lg border border-black/15 px-3 text-sm text-black outline-none focus:border-black/45"
+              placeholder={labelPlaceholder}
+              value={draftLabel}
+              onChange={(event) => setDraftLabel(event.target.value)}
+            />
+          </label>
+          <label className="grid gap-1 text-xs font-semibold text-black/55">
+            Link
+            <input
+              className="h-10 rounded-lg border border-black/15 px-3 text-sm text-black outline-none focus:border-black/45"
+              placeholder="https://..."
+              value={draftHref}
+              onChange={(event) => setDraftHref(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault()
+                  applyChanges()
+                }
+              }}
+            />
+          </label>
+          <div className="flex justify-end gap-2">
+            <button
+              className="h-9 rounded-lg border border-black/10 px-3 text-xs font-semibold text-black hover:bg-black/5"
+              onClick={() => setIsOpen(false)}
+              type="button"
+            >
+              Cancelar
+            </button>
+            <button
+              className="h-9 rounded-lg bg-black px-3 text-xs font-semibold text-white hover:bg-black/80"
+              onClick={applyChanges}
+              type="button"
+            >
+              Aplicar
+            </button>
+          </div>
         </span>
       )}
     </span>
@@ -2247,6 +2515,16 @@ function createCustomSection(
   type: NewsletterCustomSection["type"],
   id: string
 ): NewsletterCustomSection {
+  if (type === "custom-media-text") {
+    return {
+      body: [{ text: "Escreva o texto de apoio para esta imagem." }],
+      id,
+      layout: "image-left",
+      title: "Imagem com texto",
+      type,
+    }
+  }
+
   if (type === "custom-image") {
     return {
       caption: "",

@@ -19,6 +19,7 @@ import {
   CaseUpper,
   Italic,
   Link2,
+  Maximize2,
   MoveHorizontal,
   Paintbrush,
   Rows3,
@@ -103,6 +104,7 @@ export function InlineText({
     textStyle?.fontSize,
     textStyle?.letterSpacing,
     textStyle?.lineHeight,
+    textStyle?.blockWidth,
     value,
   ])
 
@@ -185,6 +187,16 @@ export function InlineText({
           if (!multiline && event.key === "Enter") {
             event.preventDefault()
             event.currentTarget.blur()
+            return
+          }
+
+          if (multiline && event.key === "Enter") {
+            requestAnimationFrame(() => {
+              resizeTextarea()
+              textareaRef.current?.scrollIntoView({
+                block: "nearest",
+              })
+            })
           }
         }}
         placeholder={placeholder}
@@ -376,9 +388,13 @@ function TextToolbar({
   const fontSize = numericStyleValue(textStyle?.fontSize, 16)
   const lineHeight = numericStyleValue(textStyle?.lineHeight, 1.45)
   const letterSpacing = numericStyleValue(textStyle?.letterSpacing, 0)
+  const blockWidth = numericStyleValue(textStyle?.blockWidth, 100)
 
   return (
-    <span className="absolute -top-12 left-0 z-20 flex max-w-[min(920px,calc(100vw-32px))] items-center gap-1 overflow-x-auto rounded-xl border border-black/10 bg-white p-1 text-black shadow-[0_14px_36px_rgba(0,0,0,0.12)]">
+    <span
+      className="absolute -top-12 left-0 z-20 flex max-w-[min(920px,calc(100vw-32px))] items-center gap-1 overflow-x-auto rounded-xl border border-black/10 bg-white p-1 text-black shadow-[0_14px_36px_rgba(0,0,0,0.12)]"
+      onPointerDown={(event) => event.stopPropagation()}
+    >
       <ToolbarButton
         active={textStyle?.bold}
         icon={<Bold className="size-4" />}
@@ -436,6 +452,17 @@ function TextToolbar({
         title="Minúsculas"
         onClick={onLower}
       />
+      {onChange && (
+        <ToolbarRange
+          icon={<Maximize2 className="size-4" />}
+          label="Largura da caixa"
+          max={100}
+          min={30}
+          step={5}
+          value={blockWidth}
+          onChange={(value) => onChange({ blockWidth: value })}
+        />
+      )}
       {onChange && (
         <ToolbarRange
           icon={<Baseline className="size-4" />}
@@ -508,12 +535,18 @@ const richTextColors = [
 
 function RichTextToolbar({ editor, onChange, textStyle }: RichTextToolbarProps) {
   const [isLinkOpen, setIsLinkOpen] = useState(false)
+  const [linkText, setLinkText] = useState("")
   const [linkValue, setLinkValue] = useState("")
   const fontSize = numericStyleValue(textStyle?.fontSize, 16)
   const lineHeight = numericStyleValue(textStyle?.lineHeight, 1.45)
   const letterSpacing = numericStyleValue(textStyle?.letterSpacing, 0)
+  const blockWidth = numericStyleValue(textStyle?.blockWidth, 100)
 
   function openLinkEditor() {
+    const { from, to } = editor.state.selection
+    const selectedText = editor.state.doc.textBetween(from, to, " ")
+
+    setLinkText(selectedText)
     setLinkValue(editor.getAttributes("link").href ?? "")
     setIsLinkOpen((current) => !current)
   }
@@ -527,17 +560,32 @@ function RichTextToolbar({ editor, onChange, textStyle }: RichTextToolbarProps) 
       return
     }
 
-    editor
-      .chain()
-      .focus()
-      .extendMarkRange("link")
-      .setLink({ href })
-      .run()
+    const text = linkText.trim()
+
+    if (text) {
+      editor
+        .chain()
+        .focus()
+        .extendMarkRange("link")
+        .insertContent(`<a href="${escapeHtml(href)}">${escapeHtml(text)}</a>`)
+        .run()
+    } else {
+      editor
+        .chain()
+        .focus()
+        .extendMarkRange("link")
+        .setLink({ href })
+        .run()
+    }
+
     setIsLinkOpen(false)
   }
 
   return (
-    <span className="absolute -top-12 left-0 z-30 flex max-w-[min(980px,calc(100vw-32px))] items-center gap-1 overflow-x-auto rounded-xl border border-black/10 bg-white p-1 text-black shadow-[0_14px_36px_rgba(0,0,0,0.12)]">
+    <span
+      className="absolute -top-12 left-0 z-30 flex max-w-[min(980px,calc(100vw-32px))] items-center gap-1 overflow-x-auto rounded-xl border border-black/10 bg-white p-1 text-black shadow-[0_14px_36px_rgba(0,0,0,0.12)]"
+      onPointerDown={(event) => event.stopPropagation()}
+    >
       <ToolbarButton
         active={editor.isActive("bold")}
         icon={<Bold className="size-4" />}
@@ -592,6 +640,17 @@ function RichTextToolbar({ editor, onChange, textStyle }: RichTextToolbarProps) 
       />
       {onChange && (
         <ToolbarRange
+          icon={<Maximize2 className="size-4" />}
+          label="Largura da caixa"
+          max={100}
+          min={30}
+          step={5}
+          value={blockWidth}
+          onChange={(value) => onChange({ blockWidth: value })}
+        />
+      )}
+      {onChange && (
+        <ToolbarRange
           icon={<Baseline className="size-4" />}
           label="Tamanho"
           max={72}
@@ -643,27 +702,52 @@ function RichTextToolbar({ editor, onChange, textStyle }: RichTextToolbarProps) 
       </span>
 
       {isLinkOpen && (
-        <span className="absolute left-0 top-11 z-40 flex w-[min(360px,calc(100vw-32px))] items-center gap-2 rounded-lg border border-black/10 bg-white p-2 shadow-[0_16px_42px_rgba(0,0,0,0.14)]">
-          <input
-            className="h-8 min-w-0 flex-1 rounded-md border border-black/15 px-2 text-xs outline-none focus:border-black/45"
-            placeholder="https://..."
-            value={linkValue}
-            onChange={(event) => setLinkValue(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault()
-                applyLink()
-              }
-            }}
-          />
-          <button
-            className="h-8 rounded-md bg-black px-3 text-xs font-semibold text-white"
-            onMouseDown={(event) => event.preventDefault()}
-            onClick={applyLink}
-            type="button"
-          >
-            OK
-          </button>
+        <span
+          className="absolute left-0 top-11 z-40 grid w-[min(420px,calc(100vw-32px))] gap-2 rounded-xl border border-black/10 bg-white p-3 shadow-[0_16px_42px_rgba(0,0,0,0.14)]"
+          onPointerDown={(event) => event.stopPropagation()}
+        >
+          <label className="grid gap-1 text-xs font-semibold text-black/55">
+            Texto
+            <input
+              className="h-10 min-w-0 rounded-lg border border-black/15 px-3 text-sm text-black outline-none focus:border-black/45"
+              placeholder="Texto do link"
+              value={linkText}
+              onChange={(event) => setLinkText(event.target.value)}
+            />
+          </label>
+          <label className="grid gap-1 text-xs font-semibold text-black/55">
+            Link
+            <input
+              className="h-10 min-w-0 rounded-lg border border-black/15 px-3 text-sm text-black outline-none focus:border-black/45"
+              placeholder="https://..."
+              value={linkValue}
+              onChange={(event) => setLinkValue(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault()
+                  applyLink()
+                }
+              }}
+            />
+          </label>
+          <div className="flex justify-end gap-2">
+            <button
+              className="h-9 rounded-lg border border-black/10 px-3 text-xs font-semibold text-black hover:bg-black/5"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => setIsLinkOpen(false)}
+              type="button"
+            >
+              Cancelar
+            </button>
+            <button
+              className="h-9 rounded-lg bg-black px-3 text-xs font-semibold text-white"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={applyLink}
+              type="button"
+            >
+              Aplicar
+            </button>
+          </div>
         </span>
       )}
     </span>
@@ -685,6 +769,7 @@ function ToolbarButton({ active, icon, onClick, title }: ToolbarButtonProps) {
         active && "bg-black text-white hover:bg-black"
       )}
       disabled={!onClick}
+      onPointerDown={(event) => event.stopPropagation()}
       onMouseDown={(event) => event.preventDefault()}
       onClick={onClick}
       title={title}
@@ -716,7 +801,10 @@ function ToolbarRange({
   value,
 }: ToolbarRangeProps) {
   return (
-    <label className="flex h-8 shrink-0 items-center gap-2 rounded-md border border-black/10 bg-black/[0.03] px-2 text-[11px] font-semibold text-black/70">
+    <label
+      className="flex h-8 shrink-0 items-center gap-2 rounded-md border border-black/10 bg-black/[0.03] px-2 text-[11px] font-semibold text-black/70"
+      onPointerDown={(event) => event.stopPropagation()}
+    >
       {icon}
       <span className="sr-only">{label}</span>
       <input
@@ -762,12 +850,19 @@ function textStyleInlineStyle(style: NewsletterTextStyle | undefined) {
     !style?.color &&
     typeof style?.fontSize !== "number" &&
     typeof style?.letterSpacing !== "number" &&
-    typeof style?.lineHeight !== "number"
+    typeof style?.lineHeight !== "number" &&
+    typeof style?.blockWidth !== "number"
   ) {
     return undefined
   }
 
+  const blockAlignment =
+    typeof style.blockWidth === "number" && style.blockWidth < 100
+      ? blockAlignmentStyle(style.align)
+      : {}
+
   return {
+    ...blockAlignment,
     color: style.color,
     fontSize:
       typeof style.fontSize === "number" ? `${style.fontSize}px` : undefined,
@@ -777,6 +872,29 @@ function textStyleInlineStyle(style: NewsletterTextStyle | undefined) {
         : undefined,
     lineHeight:
       typeof style.lineHeight === "number" ? style.lineHeight : undefined,
+    maxWidth:
+      typeof style.blockWidth === "number" ? `${style.blockWidth}%` : undefined,
+  }
+}
+
+function blockAlignmentStyle(align: NewsletterTextStyle["align"]) {
+  if (align === "center") {
+    return {
+      marginLeft: "auto",
+      marginRight: "auto",
+    }
+  }
+
+  if (align === "right") {
+    return {
+      marginLeft: "auto",
+      marginRight: "0",
+    }
+  }
+
+  return {
+    marginLeft: "0",
+    marginRight: "auto",
   }
 }
 

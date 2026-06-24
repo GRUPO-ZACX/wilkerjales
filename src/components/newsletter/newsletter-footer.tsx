@@ -46,7 +46,7 @@ export function NewsletterFooter({ newsletter }: NewsletterFooterProps) {
         <div className="min-w-0">
           <p
             className={cn(
-              "text-lg font-semibold leading-none text-[#1F1F1A] [overflow-wrap:anywhere]",
+              "text-lg font-semibold leading-tight text-[#1F1F1A] [overflow-wrap:anywhere]",
               newsletterTextStyleClassName(firmNameStyle)
             )}
             style={newsletterTextStyleCss(firmNameStyle)}
@@ -55,7 +55,7 @@ export function NewsletterFooter({ newsletter }: NewsletterFooterProps) {
           </p>
           <p
             className={cn(
-              "mt-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-[#244F49] [overflow-wrap:anywhere]",
+              "mt-1 text-[10px] font-semibold uppercase leading-5 tracking-[0.18em] text-[#244F49] [overflow-wrap:anywhere]",
               newsletterTextStyleClassName(descriptorStyle)
             )}
             style={newsletterTextStyleCss(descriptorStyle)}

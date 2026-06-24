@@ -130,6 +130,7 @@ function normalizeSections(value: unknown): NewsletterSection[] | undefined {
     "custom-text",
     "custom-image",
     "custom-button",
+    "custom-media-text",
   ])
 
   return value.filter(isRecord).flatMap((section, index) => {
@@ -181,6 +182,10 @@ function normalizeTextStyles(value: unknown) {
 
     if (typeof rawStyle.color === "string") {
       style.color = rawStyle.color
+    }
+
+    if (typeof rawStyle.blockWidth === "number") {
+      style.blockWidth = clamp(rawStyle.blockWidth, 30, 100)
     }
 
     if (typeof rawStyle.fontSize === "number") {
@@ -281,6 +286,23 @@ function normalizeCustomSections(value: unknown): NewsletterCustomSection[] {
         }
       )
     }
+
+    if (section.type === "custom-media-text") {
+      const layout =
+        section.layout === "image-right" || section.layout === "image-top"
+          ? section.layout
+          : "image-left"
+
+      sections.push({
+        body: normalizeIntro(section.body, [{ text: "" }]),
+        id,
+        imageAlt: optionalString(section.imageAlt),
+        imageUrl: optionalString(section.imageUrl),
+        layout,
+        title: stringOrFallback(section.title, ""),
+        type: "custom-media-text",
+      })
+    }
   })
 
   return sections
@@ -378,6 +400,17 @@ export function prepareNewsletterForPersistence(value: NewsletterTemplate) {
 
   newsletter.customSections = newsletter.customSections?.map((section) => {
     if (section.type === "custom-image" && section.imageUrl?.startsWith("blob:")) {
+      return {
+        ...section,
+        imageAlt: undefined,
+        imageUrl: undefined,
+      }
+    }
+
+    if (
+      section.type === "custom-media-text" &&
+      section.imageUrl?.startsWith("blob:")
+    ) {
       return {
         ...section,
         imageAlt: undefined,

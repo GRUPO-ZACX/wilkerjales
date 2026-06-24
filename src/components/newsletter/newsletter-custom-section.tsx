@@ -125,6 +125,87 @@ export function NewsletterCustomSection({
     )
   }
 
+  if (customSection.type === "custom-media-text") {
+    const title = customSection.title.trim() || "Imagem com texto"
+    const titleStyle = getNewsletterTextStyle(
+      newsletter,
+      `customSections.${customSection.id}.title`
+    )
+    const bodyStyle = getNewsletterTextStyle(
+      newsletter,
+      `customSections.${customSection.id}.body`
+    )
+    const body = customSection.body.some((segment) => segment.text.trim())
+      ? customSection.body
+      : [{ text: "Texto do informativo." }]
+    const isImageTop = customSection.layout === "image-top"
+    const imageFirst = customSection.layout !== "image-right"
+    const imageBlock = (
+      <div className="flex aspect-[4/3] min-h-56 items-center justify-center overflow-hidden bg-[#ECE8D8]">
+        {customSection.imageUrl ? (
+          <div
+            aria-label={customSection.imageAlt ?? "Imagem do informativo"}
+            className="h-full w-full bg-cover bg-center"
+            role="img"
+            style={{ backgroundImage: `url(${customSection.imageUrl})` }}
+          />
+        ) : (
+          <div className="grid gap-3 text-center text-[#244F49]">
+            <ImageSymbol className="mx-auto size-10" />
+            <p className="text-sm font-semibold">Imagem do informativo</p>
+          </div>
+        )}
+      </div>
+    )
+    const textBlock = (
+      <div className="min-w-0">
+        <h2
+          className={cn(
+            "text-[28px] font-semibold leading-tight tracking-[-0.02em] text-[#1F1F1A] [overflow-wrap:anywhere]",
+            newsletterTextStyleClassName(titleStyle)
+          )}
+          style={newsletterTextStyleCss(titleStyle)}
+        >
+          {title}
+        </h2>
+        <p
+          className={cn(
+            "mt-4 text-[16px] leading-8 text-[#404038] [overflow-wrap:anywhere]",
+            newsletterTextStyleClassName(bodyStyle)
+          )}
+          style={newsletterTextStyleCss(bodyStyle)}
+        >
+          {body.map((segment, index) => renderSegment(segment, index))}
+        </p>
+      </div>
+    )
+
+    return (
+      <section className="border border-[#B7B783]/80 bg-white p-5">
+        <div
+          className={cn(
+            "grid gap-6",
+            isImageTop
+              ? "grid-cols-1"
+              : "grid-cols-[minmax(0,0.9fr)_minmax(0,1fr)]"
+          )}
+        >
+          {imageFirst ? (
+            <>
+              {imageBlock}
+              {textBlock}
+            </>
+          ) : (
+            <>
+              {textBlock}
+              {imageBlock}
+            </>
+          )}
+        </div>
+      </section>
+    )
+  }
+
   const title = customSection.title.trim() || "Seção"
   const titleStyle = getNewsletterTextStyle(
     newsletter,
