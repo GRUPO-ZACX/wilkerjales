@@ -6,6 +6,7 @@ import puppeteer, { type Browser, type PDFOptions } from "puppeteer-core"
 type PdfLayout = "a4" | "digital"
 
 type RenderPdfOptions = {
+  headers?: Record<string, string>
   layout?: PdfLayout
   url: string
 }
@@ -75,6 +76,34 @@ async function waitForFonts() {
   await document.fonts.ready
 }
 
+async function waitForImages() {
+  const images = Array.from(document.images)
+  const pendingImages = images.filter((image) => !image.complete)
+
+  await Promise.all(
+    pendingImages.map(
+      (image) =>
+        new Promise<void>((resolve) => {
+          let settled = false
+
+          const finish = () => {
+            if (settled) {
+              return
+            }
+
+            settled = true
+            window.clearTimeout(timeout)
+            resolve()
+          }
+          const timeout = window.setTimeout(finish, 10_000)
+
+          image.addEventListener("load", finish, { once: true })
+          image.addEventListener("error", finish, { once: true })
+        })
+    )
+  )
+}
+
 async function getDocumentHeight() {
   return Math.ceil(
     Math.max(
@@ -116,6 +145,7 @@ function pdfOptionsForLayout(layout: PdfLayout, height: number): PDFOptions {
 }
 
 export async function renderPdfFromUrl({
+  headers,
   layout = "digital",
   url,
 }: RenderPdfOptions) {
@@ -125,9 +155,13 @@ export async function renderPdfFromUrl({
     const page = await browser.newPage()
     await page.setViewport(DIGITAL_VIEWPORT)
 
+    if (headers && Object.keys(headers).length > 0) {
+      await page.setExtraHTTPHeaders(headers)
+    }
+
     const response = await page.goto(url, {
       timeout: 45_000,
-      waitUntil: "networkidle0",
+      waitUntil: "domcontentloaded",
     })
 
     if (!response || !response.ok()) {
@@ -138,7 +172,20 @@ export async function renderPdfFromUrl({
     }
 
     await page.emulateMediaType("screen")
+    await page.waitForSelector("body", { timeout: 10_000 })
+
+    try {
+      await page.waitForNetworkIdle({
+        idleTime: 1_000,
+        timeout: 10_000,
+      })
+    } catch {
+      // Some production pages keep small background requests open. The PDF can
+      // still be generated after DOM, fonts, and images are ready.
+    }
+
     await page.evaluate(waitForFonts)
+    await page.evaluate(waitForImages)
 
     const height = await page.evaluate(getDocumentHeight)
     const pdf = await page.pdf(pdfOptionsForLayout(layout, height))

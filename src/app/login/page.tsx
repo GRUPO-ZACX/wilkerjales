@@ -46,7 +46,7 @@ export default async function LoginPage() {
             Entrar no dashboard
           </h2>
           <p className="mt-2 text-sm leading-6 text-black/55">
-            Use e-mail e senha cadastrados no Supabase Auth.
+            Use e-mail e senha cadastrados pelo administrador.
           </p>
 
           {!isConfigured && (

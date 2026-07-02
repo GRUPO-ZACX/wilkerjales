@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "create:user": "node scripts/create-supabase-user.mjs",
     "start": "next start",
     "lint": "eslint"
   },

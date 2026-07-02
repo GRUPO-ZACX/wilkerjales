@@ -45,32 +45,6 @@ export function LoginForm({ isConfigured }: LoginFormProps) {
     router.refresh()
   }
 
-  async function signUp() {
-    setMessage(null)
-
-    if (!isConfigured) {
-      setMessage("Configure as variáveis Supabase antes de criar a conta.")
-      return
-    }
-
-    setIsLoading(true)
-    const supabase = createClient()
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-    })
-    setIsLoading(false)
-
-    if (error) {
-      setMessage(error.message)
-      return
-    }
-
-    setMessage(
-      "Conta criada. Se a confirmação de e-mail estiver ativa no Supabase, confirme o e-mail antes de entrar."
-    )
-  }
-
   return (
     <div className="grid gap-4">
       <label className="grid gap-1.5 text-sm font-semibold text-black">
@@ -110,15 +84,6 @@ export function LoginForm({ isConfigured }: LoginFormProps) {
           type="button"
         >
           {isLoading ? "Entrando..." : "Entrar"}
-        </Button>
-        <Button
-          className="border-black/10 bg-white text-black hover:bg-black/5"
-          disabled={isLoading}
-          onClick={signUp}
-          type="button"
-          variant="outline"
-        >
-          Criar conta
         </Button>
       </div>
     </div>

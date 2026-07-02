@@ -35,6 +35,27 @@ function getPrintPath(slug: string) {
   return `/informativo/${slug}/print`
 }
 
+function getForwardedBrowserHeaders(request: NextRequest) {
+  const forwardedHeaders: Record<string, string> = {}
+  const cookie = request.headers.get("cookie")
+  const userAgent = request.headers.get("user-agent")
+  const acceptLanguage = request.headers.get("accept-language")
+
+  if (cookie) {
+    forwardedHeaders.cookie = cookie
+  }
+
+  if (userAgent) {
+    forwardedHeaders["user-agent"] = userAgent
+  }
+
+  if (acceptLanguage) {
+    forwardedHeaders["accept-language"] = acceptLanguage
+  }
+
+  return forwardedHeaders
+}
+
 export async function GET(
   request: NextRequest,
   { params }: NewsletterPdfRouteProps
@@ -47,6 +68,7 @@ export async function GET(
 
   try {
     const result = await renderPdfFromUrl({
+      headers: getForwardedBrowserHeaders(request),
       layout,
       url: printUrl.toString(),
     })
