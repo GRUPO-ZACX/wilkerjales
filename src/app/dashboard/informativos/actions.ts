@@ -7,18 +7,41 @@ import {
   normalizeNewsletterTemplate,
   prepareNewsletterForPersistence,
 } from "yes@/lib/newsletter/normalize"
+import { applyNewsletterProfile } from "yes@/lib/newsletter/profile"
+import { getNewsletterProfileForUserId } from "yes@/lib/newsletter/profile-server"
 import { slugifyTitle } from "yes@/lib/newsletter/slug"
 import type { NewsletterTemplate } from "yes@/lib/newsletter/types"
-import type { Json, NewsletterStatus } from "yes@/lib/supabase/database.types"
+import type {
+  Json,
+  NewsletterRow,
+  NewsletterStatus,
+} from "yes@/lib/supabase/database.types"
 import { hasSupabaseEnv } from "yes@/lib/supabase/env"
 import { createClient } from "yes@/lib/supabase/server"
 
 export type NewsletterActionResult = {
   ok: boolean
   id?: string
+  publicHref?: string
   status?: NewsletterStatus
   redirectTo?: string
   error?: string
+}
+
+function publicNewsletterHref(slug: string) {
+  return `/informativo/${slug}`
+}
+
+function revalidatePublicNewsletterPaths(slug?: string) {
+  revalidatePath("/publicacoes")
+  revalidatePath("/informativos")
+  revalidatePath("/informativo/[slug]", "page")
+  revalidatePath("/informativo/[slug]/print", "page")
+
+  if (slug) {
+    revalidatePath(publicNewsletterHref(slug))
+    revalidatePath(`${publicNewsletterHref(slug)}/print`)
+  }
 }
 
 async function requireAuthenticatedClient() {
@@ -56,6 +79,24 @@ function newsletterTitle(newsletter: NewsletterTemplate) {
   return newsletter.title.trim() || "Informativo sem título"
 }
 
+async function prepareNewsletterForUser(
+  newsletter: NewsletterTemplate,
+  userId: string
+) {
+  const settings = await getNewsletterProfileForUserId(userId)
+
+  return applyNewsletterProfile(
+    prepareNewsletterForPersistence(newsletter),
+    settings.profile
+  )
+}
+
+function submittedTitle(value: FormDataEntryValue | null) {
+  const title = typeof value === "string" ? value.trim() : ""
+
+  return title || "Informativo sem título"
+}
+
 async function insertNewsletterWithUniqueSlug(
   newsletter: NewsletterTemplate
 ): Promise<NewsletterActionResult> {
@@ -65,7 +106,7 @@ async function insertNewsletterWithUniqueSlug(
     return { error: error ?? "Não autorizado.", ok: false }
   }
 
-  const content = prepareNewsletterForPersistence(newsletter)
+  const content = await prepareNewsletterForUser(newsletter, userId)
   const title = newsletterTitle(content)
   const baseSlug = slugifyTitle(title)
 
@@ -118,18 +159,27 @@ export async function updateNewsletterAction(
   id: string,
   newsletter: NewsletterTemplate
 ): Promise<NewsletterActionResult> {
-  const { error, supabase } = await requireAuthenticatedClient()
+  const { error, supabase, userId } = await requireAuthenticatedClient()
 
-  if (error || !supabase) {
+  if (error || !supabase || !userId) {
     return { error: error ?? "Não autorizado.", ok: false }
   }
 
-  const content = prepareNewsletterForPersistence(newsletter)
+  const content = await prepareNewsletterForUser(newsletter, userId)
   const title = newsletterTitle(content)
+  const { data: rawCurrent } = await supabase
+    .from("newsletters")
+    .select("slug,status")
+    .eq("id", id)
+    .single()
+  const current = rawCurrent as Pick<NewsletterRow, "slug" | "status"> | null
+  const contentWithSlug = current?.slug
+    ? { ...content, slug: current.slug }
+    : content
   const { error: updateError } = await supabase
     .from("newsletters")
     .update({
-      content: content as unknown as Json,
+      content: contentWithSlug as unknown as Json,
       title,
     })
     .eq("id", id)
@@ -144,6 +194,10 @@ export async function updateNewsletterAction(
   revalidatePath("/dashboard/informativos")
   revalidatePath(`/dashboard/informativos/${id}/editar`)
 
+  if (current?.status === "published") {
+    revalidatePublicNewsletterPaths(current.slug)
+  }
+
   return { id, ok: true }
 }
 
@@ -151,18 +205,26 @@ export async function publishNewsletterAction(
   id: string,
   newsletter: NewsletterTemplate
 ): Promise<NewsletterActionResult> {
-  const { error, supabase } = await requireAuthenticatedClient()
+  const { error, supabase, userId } = await requireAuthenticatedClient()
 
-  if (error || !supabase) {
+  if (error || !supabase || !userId) {
     return { error: error ?? "Não autorizado.", ok: false }
   }
 
-  const content = prepareNewsletterForPersistence(newsletter)
+  const content = await prepareNewsletterForUser(newsletter, userId)
   const title = newsletterTitle(content)
+  const { data: rawCurrent } = await supabase
+    .from("newsletters")
+    .select("slug")
+    .eq("id", id)
+    .single()
+  const current = rawCurrent as Pick<NewsletterRow, "slug"> | null
+  const slug = current?.slug ?? content.slug
+  const contentWithSlug = { ...content, slug }
   const { error: updateError } = await supabase
     .from("newsletters")
     .update({
-      content: content as unknown as Json,
+      content: contentWithSlug as unknown as Json,
       published_at: new Date().toISOString(),
       status: "published",
       title,
@@ -175,28 +237,40 @@ export async function publishNewsletterAction(
 
   revalidatePath("/dashboard/informativos")
   revalidatePath(`/dashboard/informativos/${id}/editar`)
-  revalidatePath("/informativo/[slug]", "page")
-  revalidatePath("/informativo/[slug]/print", "page")
+  revalidatePublicNewsletterPaths(slug)
 
-  return { id, ok: true, status: "published" }
+  return {
+    id,
+    ok: true,
+    publicHref: publicNewsletterHref(slug),
+    status: "published",
+  }
 }
 
 export async function unpublishNewsletterAction(
   id: string,
   newsletter: NewsletterTemplate
 ): Promise<NewsletterActionResult> {
-  const { error, supabase } = await requireAuthenticatedClient()
+  const { error, supabase, userId } = await requireAuthenticatedClient()
 
-  if (error || !supabase) {
+  if (error || !supabase || !userId) {
     return { error: error ?? "Não autorizado.", ok: false }
   }
 
-  const content = prepareNewsletterForPersistence(newsletter)
+  const content = await prepareNewsletterForUser(newsletter, userId)
   const title = newsletterTitle(content)
+  const { data: rawCurrent } = await supabase
+    .from("newsletters")
+    .select("slug")
+    .eq("id", id)
+    .single()
+  const current = rawCurrent as Pick<NewsletterRow, "slug"> | null
+  const slug = current?.slug ?? content.slug
+  const contentWithSlug = { ...content, slug }
   const { error: updateError } = await supabase
     .from("newsletters")
     .update({
-      content: content as unknown as Json,
+      content: contentWithSlug as unknown as Json,
       published_at: null,
       status: "draft",
       title,
@@ -209,30 +283,46 @@ export async function unpublishNewsletterAction(
 
   revalidatePath("/dashboard/informativos")
   revalidatePath(`/dashboard/informativos/${id}/editar`)
-  revalidatePath("/informativo/[slug]", "page")
-  revalidatePath("/informativo/[slug]/print", "page")
+  revalidatePublicNewsletterPaths(slug)
 
   return { id, ok: true, status: "draft" }
 }
 
 export async function publishNewsletterFromListAction(formData: FormData) {
   const id = String(formData.get("id") ?? "")
-  const { error, supabase } = await requireAuthenticatedClient()
+  const { error, supabase, userId } = await requireAuthenticatedClient()
 
-  if (!id || error || !supabase) {
+  if (!id || error || !supabase || !userId) {
     return
   }
+
+  const { data: rawCurrent } = await supabase
+    .from("newsletters")
+    .select("content, slug")
+    .eq("id", id)
+    .single()
+  const current = rawCurrent as Pick<NewsletterRow, "content" | "slug"> | null
+
+  if (!current) {
+    return
+  }
+
+  const content = await prepareNewsletterForUser(
+    normalizeNewsletterTemplate(current.content),
+    userId
+  )
 
   await supabase
     .from("newsletters")
     .update({
+      content: content as unknown as Json,
       published_at: new Date().toISOString(),
       status: "published",
     })
     .eq("id", id)
 
   revalidatePath("/dashboard/informativos")
-  revalidatePath("/informativo/[slug]", "page")
+  revalidatePublicNewsletterPaths(current?.slug)
 }
 
 export async function duplicateNewsletterFromListAction(formData: FormData) {
@@ -263,6 +353,76 @@ export async function duplicateNewsletterFromListAction(formData: FormData) {
   revalidatePath("/dashboard/informativos")
 }
 
+export async function renameNewsletterFromListAction(formData: FormData) {
+  const id = String(formData.get("id") ?? "")
+  const title = submittedTitle(formData.get("title"))
+  const { error, supabase, userId } = await requireAuthenticatedClient()
+
+  if (!id || error || !supabase || !userId) {
+    return
+  }
+
+  const { data: rawData } = await supabase
+    .from("newsletters")
+    .select("content, slug, status")
+    .eq("id", id)
+    .single()
+  const data = rawData as Pick<
+    NewsletterRow,
+    "content" | "slug" | "status"
+  > | null
+
+  if (!data) {
+    return
+  }
+
+  const newsletter = normalizeNewsletterTemplate(data.content)
+  newsletter.title = title
+
+  const content = await prepareNewsletterForUser(newsletter, userId)
+
+  await supabase
+    .from("newsletters")
+    .update({
+      content: content as unknown as Json,
+      title,
+    })
+    .eq("id", id)
+
+  revalidatePath("/dashboard/informativos")
+  revalidatePath(`/dashboard/informativos/${id}/editar`)
+
+  if (data.status === "published") {
+    revalidatePublicNewsletterPaths(data.slug)
+  }
+}
+
+export async function deleteNewsletterFromListAction(formData: FormData) {
+  const id = String(formData.get("id") ?? "")
+  const { error, supabase } = await requireAuthenticatedClient()
+
+  if (!id || error || !supabase) {
+    return
+  }
+
+  const { data: rawData } = await supabase
+    .from("newsletters")
+    .select("slug")
+    .eq("id", id)
+    .single()
+  const data = rawData as Pick<NewsletterRow, "slug"> | null
+
+  await supabase.from("newsletters").delete().eq("id", id)
+
+  revalidatePath("/dashboard/informativos")
+  revalidatePublicNewsletterPaths(data?.slug)
+
+  if (data?.slug) {
+    revalidatePath(`/informativo/${data.slug}`)
+    revalidatePath(`/informativo/${data.slug}/print`)
+  }
+}
+
 export async function unpublishNewsletterFromListAction(formData: FormData) {
   const id = String(formData.get("id") ?? "")
   const { error, supabase } = await requireAuthenticatedClient()
@@ -270,6 +430,13 @@ export async function unpublishNewsletterFromListAction(formData: FormData) {
   if (!id || error || !supabase) {
     return
   }
+
+  const { data: rawCurrent } = await supabase
+    .from("newsletters")
+    .select("slug")
+    .eq("id", id)
+    .single()
+  const current = rawCurrent as Pick<NewsletterRow, "slug"> | null
 
   await supabase
     .from("newsletters")
@@ -280,5 +447,5 @@ export async function unpublishNewsletterFromListAction(formData: FormData) {
     .eq("id", id)
 
   revalidatePath("/dashboard/informativos")
-  revalidatePath("/informativo/[slug]", "page")
+  revalidatePublicNewsletterPaths(current?.slug)
 }

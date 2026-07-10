@@ -1,4 +1,10 @@
 import { defaultNewsletterSections } from "./sections"
+import {
+  contactsFromNewsletterProfile,
+  ctaFromNewsletterProfile,
+  defaultNewsletterProfile,
+  socialLinksFromNewsletterProfile,
+} from "./profile"
 import type { NewsletterTemplate } from "./types"
 
 export const defaultNewsletterTemplate: NewsletterTemplate = {
@@ -10,14 +16,16 @@ export const defaultNewsletterTemplate: NewsletterTemplate = {
     text: "#1F1F1A",
   },
   header: {
-    collection: "COLEÇÃO 2026",
-    period: "MAIO · SEMANA 2",
+    collection: "",
+    period: "2 de julho de 2026",
     issue: "02 / 2026",
     label: "Informativo Condominial",
   },
   firm: {
-    name: "JALES & JALES",
-    descriptor: "Advogados Associados",
+    descriptor: defaultNewsletterProfile.firmDescriptor,
+    logoAlt: defaultNewsletterProfile.firmLogoAlt,
+    logoUrl: defaultNewsletterProfile.firmLogoUrl,
+    name: defaultNewsletterProfile.firmName,
   },
   banner: "INFORMATIVO CONDOMINIAL · 02 / 2026 · MAIO 2026",
   category: "DIREITO CONDOMINIAL",
@@ -111,30 +119,20 @@ export const defaultNewsletterTemplate: NewsletterTemplate = {
     },
   ],
   attorney: {
-    name: "Dr. Marcelo Jales",
-    specialty: "Direito Condominial e Imobiliário",
-    phrase:
-      "Informação jurídica clara para decisões condominiais mais seguras.",
-    initials: "MJ",
-    photoAlt: "Foto do advogado Marcelo Jales",
+    initials: "WJ",
+    name: defaultNewsletterProfile.attorneyName,
+    photoAlt: defaultNewsletterProfile.attorneyPhotoAlt,
+    photoUrl: defaultNewsletterProfile.attorneyPhotoUrl,
+    phrase: defaultNewsletterProfile.attorneyPhrase,
+    specialty: defaultNewsletterProfile.attorneySpecialty,
   },
-  cta: {
-    title: "Seu condomínio precisa revisar uma cobrança sensível?",
-    description:
-      "Organize documentos, valide a estratégia e reduza riscos antes de iniciar a cobrança ou formalizar um acordo.",
-    label: "Falar com o escritório",
-    href: "mailto:contato@jalesjales.adv.br",
-  },
+  cta: ctaFromNewsletterProfile(defaultNewsletterProfile),
   customSections: [],
   sidebarBlocks: [
     {
       id: "sidebar-summary",
       text: "Entendimento útil para cobrança, negociação e gestão documental de débitos condominiais envolvendo unidades ocupadas pelo poder público.",
       type: "summary",
-    },
-    {
-      id: "sidebar-metadata",
-      type: "metadata",
     },
     {
       id: "sidebar-attorney",
@@ -148,34 +146,7 @@ export const defaultNewsletterTemplate: NewsletterTemplate = {
   sourceTitle: "",
   sourceDescription:
     "Informativo baseado em entendimento do Superior Tribunal de Justiça sobre natureza da cota condominial, encargos moratórios e tratamento de unidade ocupada por órgão público.",
-  address: "Av. Paulista, 1000 · São Paulo, SP",
-  contacts: [
-    {
-      label: "Telefone",
-      value: "(11) 4000-2026",
-      href: "tel:+551140002026",
-    },
-    {
-      label: "E-mail",
-      value: "contato@jalesjales.adv.br",
-      href: "mailto:contato@jalesjales.adv.br",
-    },
-    {
-      label: "Site",
-      value: "jalesjales.adv.br",
-      href: "https://jalesjales.adv.br",
-    },
-  ],
-  socialLinks: [
-    {
-      label: "Instagram",
-      value: "@jalesjales.adv",
-      href: "https://instagram.com/jalesjales.adv",
-    },
-    {
-      label: "LinkedIn",
-      value: "Jales & Jales Advogados",
-      href: "https://linkedin.com",
-    },
-  ],
+  address: defaultNewsletterProfile.address,
+  contacts: contactsFromNewsletterProfile(defaultNewsletterProfile),
+  socialLinks: socialLinksFromNewsletterProfile(defaultNewsletterProfile),
 }

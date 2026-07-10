@@ -8,12 +8,12 @@ import { getNewsletterSections } from "yes@/lib/newsletter/sections"
 import { cn } from "yes@/lib/utils"
 
 import { DownloadFloatingButton } from "./download-floating-button"
+import { NewsletterA4Document } from "./newsletter-a4-document"
 import { NewsletterBody } from "./newsletter-body"
 import { NewsletterCta } from "./newsletter-cta"
 import { NewsletterCustomSection } from "./newsletter-custom-section"
 import { NewsletterDecisionBox } from "./newsletter-decision-box"
 import { NewsletterFooter } from "./newsletter-footer"
-import { NewsletterHeader } from "./newsletter-header"
 import { NewsletterHero } from "./newsletter-hero"
 import { NewsletterSidebar } from "./newsletter-sidebar"
 import { NewsletterSyndicCards } from "./newsletter-syndic-cards"
@@ -30,6 +30,11 @@ export function NewsletterRenderer({
   printHref = "/informativo/demo/print",
 }: NewsletterRendererProps) {
   const isPrint = mode === "print"
+
+  if (isPrint) {
+    return <NewsletterA4Document newsletter={newsletter} />
+  }
+
   const bannerText =
     newsletter.banner.trim() || "INFORMATIVO CONDOMINIAL · EDIÇÃO EM RASCUNHO"
   const sections = getNewsletterSections(newsletter).filter(
@@ -41,14 +46,13 @@ export function NewsletterRenderer({
     <main
       className={cn(
         "min-h-screen bg-[#F7F5EE] text-[#1F1F1A]",
-        isPrint ? "py-0" : "py-0"
+        "py-0"
       )}
       style={{
         backgroundColor: theme.background,
         color: theme.text,
       }}
     >
-      <NewsletterHeader newsletter={newsletter} />
       <div className="border-y border-[#B7B783]/45 bg-[#244F49] px-5 py-3.5 text-[10px] font-semibold uppercase tracking-[0.28em] text-[#F7F5EE] sm:text-[11px]">
         <div className="mx-auto w-full max-w-[1280px] [overflow-wrap:anywhere]">
           {bannerText}
@@ -58,7 +62,6 @@ export function NewsletterRenderer({
       <section
         className={cn(
           "mx-auto w-full max-w-[1280px] px-5 py-10 sm:px-7 lg:px-8 lg:py-14",
-          isPrint && "max-w-[1200px] py-10",
           mode === "edit" && "ring-2 ring-[#B7B783]"
         )}
       >

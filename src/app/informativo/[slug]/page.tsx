@@ -1,10 +1,13 @@
+import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 
+import { PublicNewsletterToolbar } from "yes@/components/newsletter/public-newsletter-toolbar"
 import { NewsletterRenderer } from "yes@/components/newsletter/newsletter-renderer"
-import { normalizeNewsletterTemplate } from "yes@/lib/newsletter/normalize"
-import type { NewsletterRow } from "yes@/lib/supabase/database.types"
-import { hasSupabaseEnv } from "yes@/lib/supabase/env"
-import { createClient } from "yes@/lib/supabase/server"
+import {
+  getNewsletterExcerpt,
+  getPublishedNewsletterBySlug,
+  getPublishedNewsletterTitle,
+} from "yes@/lib/newsletter/publication"
 
 type PublicInformativoPageProps = {
   params: Promise<{
@@ -12,36 +15,53 @@ type PublicInformativoPageProps = {
   }>
 }
 
+export async function generateMetadata({
+  params,
+}: PublicInformativoPageProps): Promise<Metadata> {
+  const { slug } = await params
+  const publication = await getPublishedNewsletterBySlug(slug)
+
+  if (!publication) {
+    return {
+      title: "Informativo não encontrado | Jales & Jales Advogados",
+    }
+  }
+
+  const title = getPublishedNewsletterTitle(publication)
+  const description = getNewsletterExcerpt(publication.newsletter)
+
+  return {
+    title: `${title} | Jales & Jales Advogados`,
+    description,
+    openGraph: {
+      description,
+      title,
+      type: "article",
+    },
+  }
+}
+
 export default async function PublicInformativoPage({
   params,
 }: PublicInformativoPageProps) {
   const { slug } = await params
+  const publication = await getPublishedNewsletterBySlug(slug)
 
-  if (!hasSupabaseEnv()) {
+  if (!publication) {
     notFound()
   }
 
-  const supabase = await createClient()
-  const { data: rawData } = await supabase
-    .from("newsletters")
-    .select("content")
-    .eq("slug", slug)
-    .eq("status", "published")
-    .single()
-  const data = rawData as Pick<NewsletterRow, "content"> | null
-
-  if (!data) {
-    notFound()
-  }
-
-  const newsletter = normalizeNewsletterTemplate(data.content)
-  newsletter.slug = slug
+  const title = getPublishedNewsletterTitle(publication)
+  const printHref = `/api/informativos/${slug}/pdf`
 
   return (
-    <NewsletterRenderer
-      newsletter={newsletter}
-      mode="public"
-      printHref={`/api/informativos/${slug}/pdf`}
-    />
+    <>
+      <PublicNewsletterToolbar printHref={printHref} title={title} />
+      <NewsletterRenderer
+        newsletter={publication.newsletter}
+        mode="public"
+        printHref={printHref}
+      />
+    </>
   )
 }

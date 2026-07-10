@@ -36,7 +36,6 @@ import {
   Phone,
   Plus,
   Quote,
-  Scale,
   Trash2,
 } from "lucide-react"
 
@@ -61,9 +60,7 @@ type NewsletterInlineCanvasProps = {
   newsletter: NewsletterTemplate
   onAttorneyPhotoChange: (event: ChangeEvent<HTMLInputElement>) => void
   onChange: (updater: (draft: NewsletterTemplate) => void) => void
-  onLogoChange: (event: ChangeEvent<HTMLInputElement>) => void
   onRemoveAttorneyPhoto: () => void
-  onRemoveLogo: () => void
   viewport: NewsletterEditorViewport
 }
 
@@ -83,9 +80,7 @@ export function NewsletterInlineCanvas({
   newsletter,
   onAttorneyPhotoChange,
   onChange,
-  onLogoChange,
   onRemoveAttorneyPhoto,
-  onRemoveLogo,
   viewport,
 }: NewsletterInlineCanvasProps) {
   const isMobile = viewport === "mobile"
@@ -269,15 +264,6 @@ export function NewsletterInlineCanvas({
         color: theme.text,
       }}
     >
-      <EditableNewsletterHeader
-        editable={editable}
-        isMobile={isMobile}
-        newsletter={newsletter}
-        onChange={onChange}
-        onLogoChange={onLogoChange}
-        onRemoveLogo={onRemoveLogo}
-      />
-
       <div
         className={cn(
           "border-y border-[#B7B783]/45 bg-[#244F49] px-5 py-3.5 text-[10px] font-semibold uppercase tracking-[0.28em] text-[#F7F5EE]",
@@ -683,222 +669,6 @@ function SortableSectionFrame({
         </button>
       </div>
       {children}
-    </div>
-  )
-}
-
-type EditableHeaderProps = {
-  editable: boolean
-  isMobile: boolean
-  newsletter: NewsletterTemplate
-  onChange: (updater: (draft: NewsletterTemplate) => void) => void
-  onLogoChange: (event: ChangeEvent<HTMLInputElement>) => void
-  onRemoveLogo: () => void
-}
-
-function EditableNewsletterHeader({
-  editable,
-  isMobile,
-  newsletter,
-  onChange,
-  onLogoChange,
-  onRemoveLogo,
-}: EditableHeaderProps) {
-  const collection = newsletter.header.collection
-  const period = newsletter.header.period
-  const issue = newsletter.header.issue
-  const label = newsletter.header.label
-  const firmName = newsletter.firm.name
-  const firmDescriptor = newsletter.firm.descriptor
-
-  return (
-    <header
-      className={cn(
-        "relative border-b border-[#B7B783] bg-[#F7F5EE]",
-        isMobile ? "px-4 py-5" : "px-5 py-5 sm:px-7 lg:px-8"
-      )}
-    >
-      <div className="absolute inset-x-0 top-0 flex h-1">
-        <div className="flex-1 bg-[#163B35]" />
-        <div className="w-40 bg-[#B7B783]" />
-      </div>
-
-      <div
-        className={cn(
-          "mx-auto grid w-full",
-          isMobile
-            ? "max-w-[430px] gap-5"
-            : "max-w-[1280px] sm:grid-cols-[1fr_1.45fr_1fr] sm:items-center"
-        )}
-      >
-        <div className="min-w-0 space-y-1 text-[11px] font-bold uppercase leading-5 tracking-[0.18em] text-[#244F49] [overflow-wrap:anywhere]">
-          <InlineText
-            ariaLabel="Coleção"
-            editable={editable}
-            multiline
-            placeholder="COLEÇÃO"
-            value={collection}
-            onChange={(value) =>
-              onChange((draft) => {
-                draft.header.collection = value
-              })
-            }
-          />
-          <InlineText
-            ariaLabel="Período"
-            className="text-[#6D714C]"
-            editable={editable}
-            multiline
-            placeholder="PERÍODO"
-            value={period}
-            onChange={(value) =>
-              onChange((draft) => {
-                draft.header.period = value
-              })
-            }
-          />
-        </div>
-
-        <div
-          className={cn(
-            "flex min-w-0 items-center gap-3",
-            !isMobile && "sm:justify-center"
-          )}
-        >
-          <EditableLogo
-            editable={editable}
-            newsletter={newsletter}
-            onLogoChange={onLogoChange}
-            onRemoveLogo={onRemoveLogo}
-          />
-          <div className="min-w-0">
-            <InlineText
-              ariaLabel="Nome do escritório"
-              className={cn(
-                "font-semibold leading-tight tracking-[-0.02em] text-[#1F1F1A]",
-                isMobile ? "text-[21px]" : "text-[25px]"
-              )}
-              editable={editable}
-              multiline
-              placeholder="Nome do escritório"
-              value={firmName}
-              onChange={(value) =>
-                onChange((draft) => {
-                  draft.firm.name = value
-                })
-              }
-            />
-            <InlineText
-              ariaLabel="Descrição do escritório"
-              className={cn(
-                "mt-1 text-[10px] font-bold uppercase leading-5 text-[#244F49]",
-                isMobile ? "tracking-[0.16em]" : "tracking-[0.2em]"
-              )}
-              editable={editable}
-              multiline
-              placeholder="Advogados Associados"
-              value={firmDescriptor}
-              onChange={(value) =>
-                onChange((draft) => {
-                  draft.firm.descriptor = value
-                })
-              }
-            />
-          </div>
-        </div>
-
-        <div
-          className={cn(
-            "min-w-0 space-y-1 text-[11px] font-bold uppercase leading-5 tracking-[0.18em] text-[#244F49] [overflow-wrap:anywhere]",
-            !isMobile && "sm:text-right"
-          )}
-        >
-          <InlineText
-            ariaLabel="Número da edição"
-            editable={editable}
-            multiline
-            placeholder="EDIÇÃO"
-            value={issue}
-            onChange={(value) =>
-              onChange((draft) => {
-                draft.header.issue = value
-              })
-            }
-          />
-          <InlineText
-            ariaLabel="Tipo de informativo"
-            className="text-[#6D714C]"
-            editable={editable}
-            multiline
-            placeholder="Informativo"
-            value={label}
-            onChange={(value) =>
-              onChange((draft) => {
-                draft.header.label = value
-              })
-            }
-          />
-        </div>
-      </div>
-    </header>
-  )
-}
-
-type EditableLogoProps = {
-  editable: boolean
-  newsletter: NewsletterTemplate
-  onLogoChange: (event: ChangeEvent<HTMLInputElement>) => void
-  onRemoveLogo: () => void
-}
-
-function EditableLogo({
-  editable,
-  newsletter,
-  onLogoChange,
-  onRemoveLogo,
-}: EditableLogoProps) {
-  const logoUrl = newsletter.firm.logoUrl
-  const firmName = newsletter.firm.name.trim() || "Logo do escritório"
-
-  return (
-    <div className="group/logo relative grid size-12 shrink-0 place-items-center rounded-full border border-[#B7B783] bg-[#163B35] text-[#F7F5EE] shadow-[0_0_0_6px_rgba(183,183,131,0.13)]">
-      {logoUrl ? (
-        <div
-          aria-label={newsletter.firm.logoAlt ?? firmName}
-          className="h-full w-full rounded-full bg-cover bg-center"
-          role="img"
-          style={{ backgroundImage: `url(${logoUrl})` }}
-        />
-      ) : (
-        <Scale className="size-6" />
-      )}
-
-      {editable && (
-        <div className="absolute inset-0 grid place-items-center rounded-full bg-[#163B35]/0 opacity-0 transition-opacity group-hover/logo:bg-[#163B35]/75 group-hover/logo:opacity-100 group-focus-within/logo:bg-[#163B35]/75 group-focus-within/logo:opacity-100">
-          <div className="flex items-center gap-1">
-            <label className="grid size-7 cursor-pointer place-items-center rounded-full bg-[#F7F5EE] text-[#163B35] shadow-sm">
-              <ImageIcon className="size-4" />
-              <span className="sr-only">Trocar logo</span>
-              <input
-                accept="image/*"
-                className="sr-only"
-                onChange={onLogoChange}
-                type="file"
-              />
-            </label>
-            {logoUrl && (
-              <button
-                className="grid size-7 place-items-center rounded-full bg-[#F7F5EE] text-[#163B35] shadow-sm"
-                onClick={onRemoveLogo}
-                type="button"
-              >
-                <ImageOff className="size-4" />
-                <span className="sr-only">Remover logo</span>
-              </button>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   )
 }
@@ -1909,7 +1679,9 @@ function EditableSidebar({
   onRemoveAttorneyPhoto,
   textStyleProps,
 }: EditableSidebarProps) {
-  const sidebarBlocks = newsletter.sidebarBlocks ?? createDefaultSidebarBlocks()
+  const sidebarBlocks = (
+    newsletter.sidebarBlocks ?? createDefaultSidebarBlocks()
+  ).filter((block) => block.type !== "metadata")
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -2983,7 +2755,6 @@ function createDefaultSidebarBlocks(): NewsletterSidebarBlock[] {
       text: "Entendimento útil para cobrança, negociação e gestão documental de débitos condominiais envolvendo unidades ocupadas pelo poder público.",
       type: "summary",
     },
-    { id: "sidebar-metadata", type: "metadata" },
     { id: "sidebar-attorney", type: "attorney" },
     { id: "sidebar-source", type: "source" },
   ]

@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BookOpenText, FileText, Menu, Plus, X } from "lucide-react"
+import { BookOpenText, FileText, Menu, Plus, Settings, X } from "lucide-react"
 import { useState, type ReactNode } from "react"
 
 import { LogoutButton } from "yes@/components/auth/logout-button"
@@ -23,6 +23,11 @@ const navigationItems = [
     href: "/dashboard/informativos/novo",
     icon: Plus,
     label: "Novo",
+  },
+  {
+    href: "/dashboard/configuracoes",
+    icon: Settings,
+    label: "Configurações",
   },
   {
     href: "/informativo/demo",

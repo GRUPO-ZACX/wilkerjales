@@ -63,7 +63,7 @@ export async function GET(
   const { slug } = await params
   const origin = getRequestOrigin(request)
   const layout =
-    request.nextUrl.searchParams.get("paper") === "a4" ? "a4" : "digital"
+    request.nextUrl.searchParams.get("paper") === "digital" ? "digital" : "a4"
   const printUrl = new URL(getPrintPath(slug), origin)
 
   try {

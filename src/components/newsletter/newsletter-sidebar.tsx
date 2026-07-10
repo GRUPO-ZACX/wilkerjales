@@ -25,7 +25,9 @@ export function NewsletterSidebar({
   newsletter,
   mode,
 }: NewsletterSidebarProps) {
-  const blocks = newsletter.sidebarBlocks ?? defaultSidebarBlocks()
+  const blocks = (newsletter.sidebarBlocks ?? defaultSidebarBlocks()).filter(
+    (block) => block.type !== "metadata"
+  )
 
   return (
     <aside
@@ -307,7 +309,6 @@ function defaultSidebarBlocks(): NewsletterSidebarBlock[] {
       text: "Entendimento útil para cobrança, negociação e gestão documental de débitos condominiais envolvendo unidades ocupadas pelo poder público.",
       type: "summary",
     },
-    { id: "sidebar-metadata", type: "metadata" },
     { id: "sidebar-attorney", type: "attorney" },
     { id: "sidebar-source", type: "source" },
   ]

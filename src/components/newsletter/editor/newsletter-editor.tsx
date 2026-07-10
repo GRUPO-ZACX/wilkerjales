@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ChangeEvent,
@@ -13,6 +14,7 @@ import {
 import {
   ArrowLeft,
   ArrowUpRight,
+  ClipboardPaste,
   Copy,
   Eye,
   Laptop,
@@ -27,6 +29,17 @@ import {
 } from "lucide-react"
 
 import { Button } from "yes@/components/ui/button"
+import {
+  NEWSLETTER_CONTENT_IMPORT_AI_MEMORY,
+  NEWSLETTER_CONTENT_IMPORT_SAMPLE,
+  parseNewsletterContentImport,
+} from "yes@/lib/newsletter/content-import"
+import {
+  applyNewsletterProfile,
+  defaultNewsletterProfile,
+  normalizeNewsletterProfile,
+  type NewsletterProfile,
+} from "yes@/lib/newsletter/profile"
 import { getNewsletterSections } from "yes@/lib/newsletter/sections"
 import type { NewsletterTemplate } from "yes@/lib/newsletter/types"
 import type { NewsletterStatus } from "yes@/lib/supabase/database.types"
@@ -40,6 +53,7 @@ import {
 type NewsletterEditorProps = {
   backHref?: string
   initialNewsletter: NewsletterTemplate
+  initialProfile?: NewsletterProfile
   initialStatus?: NewsletterStatus
   isPersisted?: boolean
   onPublish?: NewsletterEditorAction
@@ -48,10 +62,11 @@ type NewsletterEditorProps = {
 }
 
 export type NewsletterEditorAction = (
-  newsletter: NewsletterTemplate
+  newsletter: NewsletterTemplate,
 ) => Promise<{
   ok: boolean
   error?: string
+  publicHref?: string
   redirectTo?: string
   status?: NewsletterStatus
 }>
@@ -82,6 +97,7 @@ function trimHistoryStack(items: NewsletterTemplate[]) {
 export function NewsletterEditor({
   backHref = "/dashboard/informativos",
   initialNewsletter,
+  initialProfile = defaultNewsletterProfile,
   initialStatus = "draft",
   isPersisted = false,
   onPublish,
@@ -89,7 +105,13 @@ export function NewsletterEditor({
   onUnpublish,
 }: NewsletterEditorProps) {
   const router = useRouter()
-  const initialNewsletterSnapshot = createEditorInitialNewsletter(initialNewsletter)
+  const fixedProfile = useMemo(
+    () => normalizeNewsletterProfile(initialProfile),
+    [initialProfile],
+  )
+  const initialNewsletterSnapshot = createEditorInitialNewsletter(
+    applyNewsletterProfile(initialNewsletter, fixedProfile),
+  )
   const initialNewsletterRef = useRef(initialNewsletterSnapshot)
   const newsletterRef = useRef(cloneNewsletter(initialNewsletterSnapshot))
   const historyRef = useRef<{
@@ -105,18 +127,17 @@ export function NewsletterEditor({
     canUndo: false,
   })
   const [newsletter, setNewsletter] = useState(() =>
-    cloneNewsletter(initialNewsletterSnapshot)
+    cloneNewsletter(initialNewsletterSnapshot),
   )
   const [previewMode, setPreviewMode] = useState<PreviewMode>("edit")
   const [viewport, setViewport] = useState<NewsletterEditorViewport>("desktop")
-  const [, setAttorneyPhotoObjectUrl] = useState<
-    string | null
-  >(null)
-  const [, setLogoObjectUrl] = useState<string | null>(null)
+  const [, setAttorneyPhotoObjectUrl] = useState<string | null>(null)
   const [status, setStatus] = useState<NewsletterStatus>(initialStatus)
   const [feedback, setFeedback] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [copiedPublicLink, setCopiedPublicLink] = useState(false)
+  const [isImportOpen, setIsImportOpen] = useState(false)
+  const [contentImportDraft, setContentImportDraft] = useState("")
 
   useEffect(() => {
     const objectUrls = objectUrlsRef.current
@@ -137,7 +158,7 @@ export function NewsletterEditor({
   const commitNewsletter = useCallback(
     (
       nextNewsletter: NewsletterTemplate,
-      options?: { recordHistory?: boolean }
+      options?: { recordHistory?: boolean },
     ) => {
       const currentNewsletter = newsletterRef.current
 
@@ -161,8 +182,17 @@ export function NewsletterEditor({
       newsletterRef.current = cloneNewsletter(nextNewsletter)
       setNewsletter(cloneNewsletter(nextNewsletter))
     },
-    [syncHistory]
+    [syncHistory],
   )
+
+  useEffect(() => {
+    const profiledNewsletter = applyNewsletterProfile(
+      newsletterRef.current,
+      fixedProfile,
+    )
+
+    commitNewsletter(profiledNewsletter, { recordHistory: false })
+  }, [commitNewsletter, fixedProfile])
 
   const updateNewsletter = useCallback(
     (updater: (draft: NewsletterTemplate) => void) => {
@@ -170,7 +200,7 @@ export function NewsletterEditor({
       updater(nextNewsletter)
       commitNewsletter(nextNewsletter)
     },
-    [commitNewsletter]
+    [commitNewsletter],
   )
 
   const undoNewsletterChange = useCallback(() => {
@@ -267,24 +297,6 @@ export function NewsletterEditor({
     event.target.value = ""
   }
 
-  function handleLogoChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0]
-
-    if (!file) {
-      return
-    }
-
-    const nextUrl = URL.createObjectURL(file)
-    objectUrlsRef.current.add(nextUrl)
-    setLogoObjectUrl(nextUrl)
-
-    updateNewsletter((draft) => {
-      draft.firm.logoUrl = nextUrl
-      draft.firm.logoAlt = file.name
-    })
-    event.target.value = ""
-  }
-
   function removeAttorneyPhoto() {
     setAttorneyPhotoObjectUrl(null)
 
@@ -294,18 +306,8 @@ export function NewsletterEditor({
     })
   }
 
-  function removeLogo() {
-    setLogoObjectUrl(null)
-
-    updateNewsletter((draft) => {
-      draft.firm.logoUrl = undefined
-      draft.firm.logoAlt = undefined
-    })
-  }
-
   function restoreDefaultTemplate() {
     setAttorneyPhotoObjectUrl(null)
-    setLogoObjectUrl(null)
 
     syncHistory({
       future: [],
@@ -321,18 +323,33 @@ export function NewsletterEditor({
   async function runNewsletterAction(
     action: NewsletterEditorAction | undefined,
     fallbackConsoleLabel: string,
-    successMessage: string
+    successMessage: string,
   ) {
     setFeedback(null)
+    const newsletterForAction = applyNewsletterProfile(
+      newsletterRef.current,
+      fixedProfile,
+    )
+
+    commitNewsletter(newsletterForAction, { recordHistory: false })
 
     if (!action) {
-      console.log(fallbackConsoleLabel, newsletter)
+      console.log(fallbackConsoleLabel, newsletterForAction)
       setFeedback("JSON do rascunho enviado para o console.")
       return
     }
 
     setIsSaving(true)
-    const result = await action(newsletter)
+    let result: Awaited<ReturnType<NewsletterEditorAction>>
+
+    try {
+      result = await action(newsletterForAction)
+    } catch {
+      setFeedback("Não foi possível concluir a ação agora.")
+      setIsSaving(false)
+      return
+    }
+
     setIsSaving(false)
 
     if (!result.ok) {
@@ -344,7 +361,11 @@ export function NewsletterEditor({
       setStatus(result.status)
     }
 
-    setFeedback(successMessage)
+    setFeedback(
+      result.status === "published"
+        ? "Informativo publicado. Ele já aparece em Publicações."
+        : successMessage,
+    )
 
     if (result.redirectTo) {
       router.push(result.redirectTo)
@@ -357,7 +378,9 @@ export function NewsletterEditor({
     void runNewsletterAction(
       onSaveDraft,
       "Informativo rascunho",
-      "Rascunho salvo."
+      status === "published"
+        ? "Alterações salvas no informativo publicado."
+        : "Rascunho salvo.",
     )
   }
 
@@ -365,7 +388,7 @@ export function NewsletterEditor({
     void runNewsletterAction(
       onPublish,
       "Informativo publicado",
-      "Informativo publicado."
+      "Informativo publicado.",
     )
   }
 
@@ -373,16 +396,39 @@ export function NewsletterEditor({
     void runNewsletterAction(
       onUnpublish,
       "Informativo voltou para rascunho",
-      "Informativo voltou para rascunho."
+      "Informativo voltou para rascunho.",
     )
   }
 
   async function copyPublicLink() {
     const publicHref = `/informativo/${newsletter.slug}`
 
-    await navigator.clipboard.writeText(`${window.location.origin}${publicHref}`)
+    await navigator.clipboard.writeText(
+      `${window.location.origin}${publicHref}`,
+    )
     setCopiedPublicLink(true)
     window.setTimeout(() => setCopiedPublicLink(false), 1600)
+  }
+
+  function applyContentImport() {
+    const result = parseNewsletterContentImport(
+      contentImportDraft,
+      newsletterRef.current,
+    )
+
+    if (result.appliedFields.length === 0) {
+      setFeedback("Cole um conteúdo no padrão para preencher o informativo.")
+      return
+    }
+
+    const profiledNewsletter = applyNewsletterProfile(
+      result.newsletter,
+      fixedProfile,
+    )
+
+    commitNewsletter(profiledNewsletter)
+    setFeedback(`Conteúdo aplicado: ${result.appliedFields.join(", ")}.`)
+    setIsImportOpen(false)
   }
 
   const statusLabel =
@@ -394,6 +440,9 @@ export function NewsletterEditor({
   const isEditing = previewMode === "edit"
   const { canRedo, canUndo } = historyAvailability
   const publicHref = `/informativo/${newsletter.slug}`
+  const projectTitle = newsletter.title.trim() || "Novo informativo"
+  const saveLabel =
+    status === "published" ? "Salvar alterações" : "Salvar rascunho"
 
   return (
     <main className="min-h-screen bg-neutral-50 text-black">
@@ -417,9 +466,22 @@ export function NewsletterEditor({
                 Editor no próprio informativo
               </p>
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="truncate text-lg font-semibold tracking-[-0.02em] text-black sm:text-xl">
-                  {newsletter.title.trim() || "Novo informativo"}
-                </h1>
+                <h1 className="sr-only">{projectTitle}</h1>
+                <label className="min-w-[220px] max-w-full">
+                  <span className="sr-only">Nome do projeto</span>
+                  <input
+                    aria-label="Nome do projeto"
+                    className="h-9 w-full min-w-0 rounded-lg border border-transparent bg-black/[0.03] px-2.5 text-lg font-semibold tracking-[-0.02em] text-black outline-none transition-colors placeholder:text-black/35 hover:border-black/10 focus:border-black/25 focus:bg-white focus:ring-3 focus:ring-black/10 sm:text-xl"
+                    onChange={(event) =>
+                      updateNewsletter((draft) => {
+                        draft.title = event.target.value
+                      })
+                    }
+                    placeholder="Nome do projeto"
+                    title="Altere o nome do projeto e clique em salvar"
+                    value={newsletter.title}
+                  />
+                </label>
                 <span className="rounded-full border border-black/10 bg-black/[0.03] px-2.5 py-1 text-xs font-semibold text-black/70">
                   {statusLabel}
                 </span>
@@ -432,7 +494,8 @@ export function NewsletterEditor({
               <button
                 className={cn(
                   "inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-semibold text-black/70 transition-colors hover:text-black",
-                  viewport === "desktop" && "bg-black text-white hover:text-white"
+                  viewport === "desktop" &&
+                    "bg-black text-white hover:text-white",
                 )}
                 onClick={() => setViewport("desktop")}
                 type="button"
@@ -443,7 +506,8 @@ export function NewsletterEditor({
               <button
                 className={cn(
                   "inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-semibold text-black/70 transition-colors hover:text-black",
-                  viewport === "mobile" && "bg-black text-white hover:text-white"
+                  viewport === "mobile" &&
+                    "bg-black text-white hover:text-white",
                 )}
                 onClick={() => setViewport("mobile")}
                 type="button"
@@ -457,7 +521,7 @@ export function NewsletterEditor({
               label={isEditing ? "Visualizar" : "Editar"}
               onClick={() =>
                 setPreviewMode((current) =>
-                  current === "edit" ? "public" : "edit"
+                  current === "edit" ? "public" : "edit",
                 )
               }
             >
@@ -517,10 +581,27 @@ export function NewsletterEditor({
               }
             />
 
+            <ContentImportPopover
+              isOpen={isImportOpen}
+              value={contentImportDraft}
+              onApply={applyContentImport}
+              onClose={() => setIsImportOpen(false)}
+              onCopyMemory={() =>
+                navigator.clipboard.writeText(
+                  NEWSLETTER_CONTENT_IMPORT_AI_MEMORY,
+                )
+              }
+              onLoadSample={() =>
+                setContentImportDraft(NEWSLETTER_CONTENT_IMPORT_SAMPLE)
+              }
+              onOpen={() => setIsImportOpen((current) => !current)}
+              onValueChange={setContentImportDraft}
+            />
+
             <EditorIconButton
               className="bg-black text-white hover:bg-black/80"
               disabled={isSaving}
-              label={isSaving ? "Salvando" : "Salvar rascunho"}
+              label={isSaving ? "Salvando" : saveLabel}
               onClick={saveDraft}
             >
               <Save />
@@ -581,9 +662,18 @@ export function NewsletterEditor({
         </div>
 
         {(feedback || copiedPublicLink) && (
-          <p className="mx-auto mt-2 w-full max-w-[1520px] text-xs font-medium text-black/60">
-            {copiedPublicLink ? "Link público copiado." : feedback}
-          </p>
+          <div className="mx-auto mt-2 flex w-full max-w-[1520px] flex-wrap items-center gap-2 text-xs font-medium text-black/60">
+            <span>{copiedPublicLink ? "Link público copiado." : feedback}</span>
+            {status === "published" ? (
+              <Link
+                className="font-semibold text-black underline-offset-4 hover:underline"
+                href="/publicacoes"
+                target="_blank"
+              >
+                Ver em Publicações
+              </Link>
+            ) : null}
+          </div>
         )}
       </header>
 
@@ -591,9 +681,7 @@ export function NewsletterEditor({
         <div
           className={cn(
             "mx-auto w-full transition-all duration-300",
-            viewport === "mobile"
-              ? "max-w-[430px] px-3"
-              : "max-w-none px-0"
+            viewport === "mobile" ? "max-w-[430px] px-3" : "max-w-none px-0",
           )}
         >
           {viewport === "mobile" ? (
@@ -606,9 +694,7 @@ export function NewsletterEditor({
                   viewport={viewport}
                   onAttorneyPhotoChange={handleAttorneyPhotoChange}
                   onChange={updateNewsletter}
-                  onLogoChange={handleLogoChange}
                   onRemoveAttorneyPhoto={removeAttorneyPhoto}
-                  onRemoveLogo={removeLogo}
                 />
               </div>
             </div>
@@ -619,9 +705,7 @@ export function NewsletterEditor({
               viewport={viewport}
               onAttorneyPhotoChange={handleAttorneyPhotoChange}
               onChange={updateNewsletter}
-              onLogoChange={handleLogoChange}
               onRemoveAttorneyPhoto={removeAttorneyPhoto}
-              onRemoveLogo={removeLogo}
             />
           )}
         </div>
@@ -650,7 +734,7 @@ function EditorIconButton({
       aria-label={label}
       className={cn(
         "border-black/15 bg-white text-black hover:bg-black/5",
-        className
+        className,
       )}
       disabled={disabled}
       onClick={onClick}
@@ -733,6 +817,93 @@ function AppearancePopover({
   )
 }
 
+type ContentImportPopoverProps = {
+  isOpen: boolean
+  onApply: () => void
+  onClose: () => void
+  onCopyMemory: () => void
+  onLoadSample: () => void
+  onOpen: () => void
+  onValueChange: (value: string) => void
+  value: string
+}
+
+function ContentImportPopover({
+  isOpen,
+  onApply,
+  onClose,
+  onCopyMemory,
+  onLoadSample,
+  onOpen,
+  onValueChange,
+  value,
+}: ContentImportPopoverProps) {
+  return (
+    <div className="relative">
+      <EditorIconButton label="Colar conteúdo" onClick={onOpen}>
+        <ClipboardPaste />
+      </EditorIconButton>
+
+      {isOpen && (
+        <div className="absolute right-0 top-10 z-50 w-[min(520px,calc(100vw-32px))] rounded-xl border border-black/10 bg-white p-3 text-black shadow-[0_18px_54px_rgba(0,0,0,0.14)]">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">
+                Colar conteúdo
+              </p>
+              <p className="mt-1 text-sm leading-5 text-black/55">
+                Cole apenas o conteúdo jurídico. Logo, contatos e CTA vêm das
+                configurações.
+              </p>
+            </div>
+            <button
+              className="grid size-8 place-items-center rounded-lg border border-black/10 text-black/50 hover:bg-black hover:text-white"
+              onClick={onClose}
+              type="button"
+            >
+              <span className="sr-only">Fechar</span>x
+            </button>
+          </div>
+
+          <textarea
+            className="mt-3 h-72 w-full resize-y rounded-lg border border-black/10 bg-white p-3 font-mono text-xs leading-5 text-black outline-none transition-colors focus:border-black/35 focus:ring-3 focus:ring-black/10"
+            placeholder="Cole aqui o conteúdo gerado no padrão combinado."
+            value={value}
+            onChange={(event) => onValueChange(event.target.value)}
+          />
+
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap gap-3">
+              <button
+                className="text-xs font-semibold text-black/55 underline-offset-4 hover:text-black hover:underline"
+                onClick={onLoadSample}
+                type="button"
+              >
+                Carregar modelo
+              </button>
+              <button
+                className="text-xs font-semibold text-black/55 underline-offset-4 hover:text-black hover:underline"
+                onClick={onCopyMemory}
+                type="button"
+              >
+                Copiar memória IA
+              </button>
+            </div>
+            <Button
+              className="border-black bg-black text-white hover:bg-black/80"
+              onClick={onApply}
+              type="button"
+              variant="outline"
+            >
+              Aplicar ao informativo
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 type SwatchButtonProps = {
   active: boolean
   color: string
@@ -744,7 +915,7 @@ function SwatchButton({ active, color, onClick }: SwatchButtonProps) {
     <button
       className={cn(
         "size-8 rounded-full border border-black/15",
-        active && "ring-2 ring-black ring-offset-2"
+        active && "ring-2 ring-black ring-offset-2",
       )}
       onClick={onClick}
       style={{ backgroundColor: color }}

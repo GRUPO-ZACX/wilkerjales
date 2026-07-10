@@ -1,7 +1,9 @@
 import type { Metadata } from "next"
 
 import { NewsletterEditor } from "yes@/components/newsletter/editor/newsletter-editor"
+import { applyNewsletterProfile } from "yes@/lib/newsletter/profile"
 import { defaultNewsletterTemplate } from "yes@/lib/newsletter/default-template"
+import { getCurrentUserNewsletterProfile } from "yes@/lib/newsletter/profile-server"
 import { createNewsletterAction } from "../actions"
 
 export const metadata: Metadata = {
@@ -9,11 +11,17 @@ export const metadata: Metadata = {
   description: "Editor inicial do Informativo Jurídico Digital.",
 }
 
-export default function NovoInformativoPage() {
+export default async function NovoInformativoPage() {
+  const settings = await getCurrentUserNewsletterProfile()
+
   return (
     <NewsletterEditor
       backHref="/dashboard/informativos"
-      initialNewsletter={defaultNewsletterTemplate}
+      initialNewsletter={applyNewsletterProfile(
+        defaultNewsletterTemplate,
+        settings.profile
+      )}
+      initialProfile={settings.profile}
       onSaveDraft={createNewsletterAction}
     />
   )

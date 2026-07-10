@@ -1,6 +1,6 @@
 import Link from "next/link"
 import type { Metadata } from "next"
-import { FileText, Plus } from "lucide-react"
+import { ArrowUpRight, FileText, Plus } from "lucide-react"
 
 import { Button } from "yes@/components/ui/button"
 import { NewsletterDashboardList } from "yes@/components/newsletter/editor/newsletter-dashboard-list"
@@ -44,15 +44,28 @@ export default async function InformativosPage() {
             </p>
           </div>
 
-          <Button
-            asChild
-            className="w-fit bg-black text-white hover:bg-black/80"
-          >
-            <Link href="/dashboard/informativos/novo">
-              <Plus />
-              Novo informativo
-            </Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              asChild
+              className="w-fit border-black/10 bg-white text-black hover:bg-black/5"
+              variant="outline"
+            >
+              <Link href="/publicacoes" target="_blank">
+                <ArrowUpRight />
+                Ver página pública
+              </Link>
+            </Button>
+
+            <Button
+              asChild
+              className="w-fit bg-black text-white hover:bg-black/80"
+            >
+              <Link href="/dashboard/informativos/novo">
+                <Plus />
+                Novo informativo
+              </Link>
+            </Button>
+          </div>
         </div>
 
         {newsletters.length === 0 ? (

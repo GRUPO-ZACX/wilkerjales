@@ -329,11 +329,6 @@ function normalizeSidebarBlocks(
       return
     }
 
-    if (block.type === "metadata") {
-      blocks.push({ id, type: "metadata" })
-      return
-    }
-
     if (block.type === "attorney") {
       blocks.push({ id, type: "attorney" })
       return
@@ -396,7 +391,7 @@ export function normalizeNewsletterTemplate(value: unknown): NewsletterTemplate 
   const attorney = isRecord(value.attorney) ? value.attorney : {}
   const cta = isRecord(value.cta) ? value.cta : {}
 
-  return {
+  const newsletter: NewsletterTemplate = {
     ...fallback,
     id: stringOrFallback(value.id, fallback.id),
     slug: stringOrFallback(value.slug, fallback.slug),
@@ -459,6 +454,8 @@ export function normalizeNewsletterTemplate(value: unknown): NewsletterTemplate 
     contacts: normalizeContacts(value.contacts, fallback.contacts),
     socialLinks: normalizeContacts(value.socialLinks, fallback.socialLinks),
   }
+
+  return newsletter
 }
 
 export function prepareNewsletterForPersistence(value: NewsletterTemplate) {

@@ -3,6 +3,8 @@ import { notFound } from "next/navigation"
 
 import { NewsletterEditor } from "yes@/components/newsletter/editor/newsletter-editor"
 import { normalizeNewsletterTemplate } from "yes@/lib/newsletter/normalize"
+import { applyNewsletterProfile } from "yes@/lib/newsletter/profile"
+import { getCurrentUserNewsletterProfile } from "yes@/lib/newsletter/profile-server"
 import type { NewsletterRow } from "yes@/lib/supabase/database.types"
 import { hasSupabaseEnv } from "yes@/lib/supabase/env"
 import { createClient } from "yes@/lib/supabase/server"
@@ -56,7 +58,11 @@ export default async function EditarInformativoPage({
     notFound()
   }
 
-  const newsletter = normalizeNewsletterTemplate(data.content)
+  const settings = await getCurrentUserNewsletterProfile()
+  const newsletter = applyNewsletterProfile(
+    normalizeNewsletterTemplate(data.content),
+    settings.profile
+  )
   newsletter.id = data.id
   newsletter.slug = data.slug
 
@@ -64,6 +70,7 @@ export default async function EditarInformativoPage({
     <NewsletterEditor
       backHref="/dashboard/informativos"
       initialNewsletter={newsletter}
+      initialProfile={settings.profile}
       initialStatus={data.status}
       isPersisted
       onPublish={publishNewsletterAction.bind(null, data.id)}

@@ -1,16 +1,25 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
-import { ArrowUpRight, Copy, LayoutGrid, List, Search } from "lucide-react"
+import {
+  ArrowUpRight,
+  Copy,
+  LayoutGrid,
+  List,
+  Pencil,
+  Search,
+  Trash2,
+} from "lucide-react"
 
 import { Badge } from "yes@/components/ui/badge"
 import { Button } from "yes@/components/ui/button"
 import type { NewsletterRow } from "yes@/lib/supabase/database.types"
 import {
+  deleteNewsletterFromListAction,
   duplicateNewsletterFromListAction,
   publishNewsletterFromListAction,
+  renameNewsletterFromListAction,
   unpublishNewsletterFromListAction,
 } from "yes@/app/dashboard/informativos/actions"
 import { cn } from "yes@/lib/utils"
@@ -139,15 +148,16 @@ type NewsletterItemProps = {
 }
 
 function NewsletterItem({ newsletter, viewMode }: NewsletterItemProps) {
-  const router = useRouter()
   const [copiedPublicLink, setCopiedPublicLink] = useState(false)
+  const [isRenaming, setIsRenaming] = useState(false)
+  const [draftTitle, setDraftTitle] = useState(newsletter.title)
   const isPublished = newsletter.status === "published"
   const editHref = `/dashboard/informativos/${newsletter.id}/editar`
   const publicHref = `/informativo/${newsletter.slug}`
-
-  function openEditor() {
-    router.push(editHref)
-  }
+  const publicationLabel =
+    isPublished && newsletter.published_at
+      ? `Publicado em ${formatDate(newsletter.published_at)}`
+      : null
 
   async function copyPublicLink() {
     const origin = window.location.origin
@@ -160,39 +170,81 @@ function NewsletterItem({ newsletter, viewMode }: NewsletterItemProps) {
     <article
       aria-label={`Editar informativo ${newsletter.title}`}
       className={cn(
-        "cursor-pointer rounded-xl border border-black/10 bg-white p-4 text-black shadow-[0_12px_34px_rgba(0,0,0,0.04)] transition-[border-color,box-shadow,transform] hover:border-black/25 hover:shadow-[0_18px_44px_rgba(0,0,0,0.08)] focus:outline-none focus-visible:ring-2 focus-visible:ring-black/30",
+        "rounded-xl border border-black/10 bg-white p-4 text-black shadow-[0_12px_34px_rgba(0,0,0,0.04)] transition-[border-color,box-shadow,transform] hover:border-black/25 hover:shadow-[0_18px_44px_rgba(0,0,0,0.08)]",
         viewMode === "list" &&
           "grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center"
       )}
-      onClick={openEditor}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault()
-          openEditor()
-        }
-      }}
-      role="link"
-      tabIndex={0}
     >
       <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-lg font-semibold tracking-[-0.02em] text-black [overflow-wrap:anywhere]">
-            {newsletter.title}
-          </h2>
-          <Badge
-            className={
-              isPublished
-                ? "border-black bg-black text-white"
-                : "border-black/10 bg-black/[0.04] text-black/65"
-            }
-            variant="outline"
+        {isRenaming ? (
+          <form
+            action={renameNewsletterFromListAction}
+            className="grid gap-2"
+            onSubmit={() => setIsRenaming(false)}
           >
-            {isPublished ? "Publicado" : "Rascunho"}
-          </Badge>
-        </div>
+            <input name="id" type="hidden" value={newsletter.id} />
+            <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.12em] text-black/45">
+              Nome do projeto
+              <input
+                autoFocus
+                className="h-9 rounded-lg border border-black/15 bg-white px-3 text-sm font-semibold tracking-[-0.01em] text-black outline-none transition-colors focus:border-black/35 focus:ring-3 focus:ring-black/10"
+                name="title"
+                onChange={(event) => setDraftTitle(event.target.value)}
+                required
+                value={draftTitle}
+              />
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                className="bg-black text-white hover:bg-black/80"
+                size="sm"
+                type="submit"
+              >
+                Salvar nome
+              </Button>
+              <Button
+                className="border-black/10 bg-white text-black hover:bg-black/5"
+                onClick={() => {
+                  setDraftTitle(newsletter.title)
+                  setIsRenaming(false)
+                }}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                Cancelar
+              </Button>
+            </div>
+          </form>
+        ) : (
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              className="text-lg font-semibold tracking-[-0.02em] text-black [overflow-wrap:anywhere] hover:underline"
+              href={editHref}
+              title="Abrir projeto"
+            >
+              {newsletter.title}
+            </Link>
+            <Badge
+              className={
+                isPublished
+                  ? "border-black bg-black text-white"
+                  : "border-black/10 bg-black/[0.04] text-black/65"
+              }
+              variant="outline"
+            >
+              {isPublished ? "Publicado" : "Rascunho"}
+            </Badge>
+          </div>
+        )}
         <p className="mt-2 text-xs font-medium text-black/50">
           Atualizado em {formatDate(newsletter.updated_at)}
         </p>
+        {publicationLabel ? (
+          <p className="mt-1 text-xs font-semibold text-black/60">
+            {publicationLabel}
+          </p>
+        ) : null}
         <p className="mt-1 truncate text-xs text-black/40">/{newsletter.slug}</p>
       </div>
 
@@ -201,9 +253,31 @@ function NewsletterItem({ newsletter, viewMode }: NewsletterItemProps) {
           "mt-5 flex flex-wrap gap-2",
           viewMode === "list" && "mt-0 lg:justify-end"
         )}
-        onClick={(event) => event.stopPropagation()}
-        onKeyDown={(event) => event.stopPropagation()}
       >
+        <Button
+          asChild
+          className="border-black/10 bg-white text-black hover:bg-black/5"
+          size="sm"
+          variant="outline"
+        >
+          <Link href={editHref}>Abrir</Link>
+        </Button>
+
+        <Button
+          className="border-black/10 bg-white text-black hover:bg-black/5"
+          disabled={isRenaming}
+          onClick={() => {
+            setDraftTitle(newsletter.title)
+            setIsRenaming(true)
+          }}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          <Pencil />
+          Renomear
+        </Button>
+
         {isPublished && (
           <div className="inline-flex overflow-hidden rounded-lg border border-black/10 bg-white">
             <Button
@@ -262,6 +336,30 @@ function NewsletterItem({ newsletter, viewMode }: NewsletterItemProps) {
             variant="outline"
           >
             Duplicar
+          </Button>
+        </form>
+
+        <form
+          action={deleteNewsletterFromListAction}
+          onSubmit={(event) => {
+            if (
+              !window.confirm(
+                `Excluir definitivamente o projeto "${newsletter.title}"?`
+              )
+            ) {
+              event.preventDefault()
+            }
+          }}
+        >
+          <input name="id" type="hidden" value={newsletter.id} />
+          <Button
+            className="border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+            size="sm"
+            type="submit"
+            variant="outline"
+          >
+            <Trash2 />
+            Excluir
           </Button>
         </form>
 
