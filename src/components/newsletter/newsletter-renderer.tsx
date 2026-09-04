@@ -4,6 +4,7 @@ import type {
   NewsletterSectionType,
   NewsletterTemplate,
 } from "yes@/lib/newsletter/types"
+import { newsletterImageCropBackgroundStyle } from "yes@/lib/newsletter/image-crop"
 import { getNewsletterSections } from "yes@/lib/newsletter/sections"
 import { cn } from "yes@/lib/utils"
 
@@ -58,6 +59,22 @@ export function NewsletterRenderer({
           {bannerText}
         </div>
       </div>
+
+      {newsletter.cover?.imageUrl ? (
+        <section className="border-b border-[#B7B783]/45 bg-[#ECE8D8] px-5 py-6 sm:px-7 lg:px-8">
+          <div className="mx-auto aspect-[16/5] w-full max-w-[1280px] overflow-hidden border border-[#B7B783] bg-[#F7F5EE]">
+            <div
+              aria-label={newsletter.cover.imageAlt || "Banner da publicação"}
+              className="h-full w-full bg-cover bg-no-repeat"
+              role="img"
+              style={newsletterImageCropBackgroundStyle(
+                newsletter.cover.imageUrl,
+                newsletter.cover.crop,
+              )}
+            />
+          </div>
+        </section>
+      ) : null}
 
       <section
         className={cn(

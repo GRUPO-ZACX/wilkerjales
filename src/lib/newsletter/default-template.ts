@@ -5,6 +5,7 @@ import {
   defaultNewsletterProfile,
   socialLinksFromNewsletterProfile,
 } from "./profile"
+import { defaultNewsletterImageCrop } from "./image-crop"
 import type { NewsletterTemplate } from "./types"
 
 export const defaultNewsletterTemplate: NewsletterTemplate = {
@@ -26,6 +27,11 @@ export const defaultNewsletterTemplate: NewsletterTemplate = {
     logoAlt: defaultNewsletterProfile.firmLogoAlt,
     logoUrl: defaultNewsletterProfile.firmLogoUrl,
     name: defaultNewsletterProfile.firmName,
+  },
+  cover: {
+    crop: defaultNewsletterImageCrop,
+    imageAlt: "",
+    imageUrl: "",
   },
   banner: "INFORMATIVO CONDOMINIAL · 02 / 2026 · MAIO 2026",
   category: "DIREITO CONDOMINIAL",
@@ -122,6 +128,7 @@ export const defaultNewsletterTemplate: NewsletterTemplate = {
     initials: "WJ",
     name: defaultNewsletterProfile.attorneyName,
     photoAlt: defaultNewsletterProfile.attorneyPhotoAlt,
+    photoCrop: defaultNewsletterProfile.attorneyPhotoCrop,
     photoUrl: defaultNewsletterProfile.attorneyPhotoUrl,
     phrase: defaultNewsletterProfile.attorneyPhrase,
     specialty: defaultNewsletterProfile.attorneySpecialty,

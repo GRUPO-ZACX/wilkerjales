@@ -42,16 +42,26 @@ import {
 import type {
   NewsletterContact,
   NewsletterCustomSection,
+  NewsletterImageCrop,
   NewsletterSection,
   NewsletterSectionType,
   NewsletterSidebarBlock,
   NewsletterTemplate,
   NewsletterTextStyle,
 } from "yes@/lib/newsletter/types"
+import {
+  ACCEPTED_RASTER_IMAGE_TYPES,
+  createImageUploadRejectedMessage,
+  isAcceptedImageFile,
+  MAX_SOURCE_IMAGE_SIZE,
+  RASTER_IMAGE_UPLOAD_ACCEPT,
+} from "yes@/lib/newsletter/browser-image"
+import { newsletterImageCropBackgroundStyle } from "yes@/lib/newsletter/image-crop"
 import { getNewsletterSections } from "yes@/lib/newsletter/sections"
 import { cn } from "yes@/lib/utils"
 
 import { InlineRichText, InlineText } from "./inline-editable"
+import { PhotoCropDialog } from "./photo-crop-dialog"
 
 export type NewsletterEditorViewport = "desktop" | "mobile"
 
@@ -60,7 +70,16 @@ type NewsletterInlineCanvasProps = {
   newsletter: NewsletterTemplate
   onAttorneyPhotoChange: (event: ChangeEvent<HTMLInputElement>) => void
   onChange: (updater: (draft: NewsletterTemplate) => void) => void
+  onCoverImageChange: (event: ChangeEvent<HTMLInputElement>) => void
+  onImageUploadRejected: (message: string) => void
+  onRemoveCoverImage: () => void
   onRemoveAttorneyPhoto: () => void
+  onSaveAttorneyPhotoCrop: (
+    crop: NewsletterImageCrop,
+  ) => Promise<void> | void
+  onSaveCoverImageCrop: (
+    crop: NewsletterImageCrop,
+  ) => Promise<void> | void
   viewport: NewsletterEditorViewport
 }
 
@@ -80,7 +99,12 @@ export function NewsletterInlineCanvas({
   newsletter,
   onAttorneyPhotoChange,
   onChange,
+  onCoverImageChange,
+  onImageUploadRejected,
+  onRemoveCoverImage,
   onRemoveAttorneyPhoto,
+  onSaveAttorneyPhotoCrop,
+  onSaveCoverImageCrop,
   viewport,
 }: NewsletterInlineCanvasProps) {
   const isMobile = viewport === "mobile"
@@ -293,6 +317,15 @@ export function NewsletterInlineCanvas({
         </div>
       </div>
 
+      <EditableCoverBanner
+        editable={editable}
+        isMobile={isMobile}
+        newsletter={newsletter}
+        onCoverImageChange={onCoverImageChange}
+        onRemoveCoverImage={onRemoveCoverImage}
+        onSaveCoverImageCrop={onSaveCoverImageCrop}
+      />
+
       <section
         className={cn(
           "mx-auto w-full",
@@ -339,6 +372,7 @@ export function NewsletterInlineCanvas({
                           section={section}
                           type={section.type}
                           onChange={onChange}
+                          onImageUploadRejected={onImageUploadRejected}
                           textStyleProps={textStyleProps}
                         />
                       </SortableSectionFrame>
@@ -357,6 +391,7 @@ export function NewsletterInlineCanvas({
                     section={section}
                     type={section.type}
                     onChange={onChange}
+                    onImageUploadRejected={onImageUploadRejected}
                     textStyleProps={textStyleProps}
                   />
                 </div>
@@ -370,7 +405,9 @@ export function NewsletterInlineCanvas({
             newsletter={newsletter}
             onAttorneyPhotoChange={onAttorneyPhotoChange}
             onChange={onChange}
+            onImageUploadRejected={onImageUploadRejected}
             onRemoveAttorneyPhoto={onRemoveAttorneyPhoto}
+            onSaveAttorneyPhotoCrop={onSaveAttorneyPhotoCrop}
             textStyleProps={textStyleProps}
           />
         </div>
@@ -392,6 +429,7 @@ type NewsletterContentSectionProps = {
   isMobile: boolean
   newsletter: NewsletterTemplate
   onChange: (updater: (draft: NewsletterTemplate) => void) => void
+  onImageUploadRejected: (message: string) => void
   section: NewsletterSection
   textStyleProps: (fieldId: string) => {
     onTextStyleChange: (style: NewsletterTextStyle) => void
@@ -405,6 +443,7 @@ function NewsletterContentSection({
   isMobile,
   newsletter,
   onChange,
+  onImageUploadRejected,
   section,
   textStyleProps,
   type,
@@ -416,6 +455,7 @@ function NewsletterContentSection({
         isMobile={isMobile}
         newsletter={newsletter}
         onChange={onChange}
+        onImageUploadRejected={onImageUploadRejected}
         textStyleProps={textStyleProps}
       />
     )
@@ -428,6 +468,7 @@ function NewsletterContentSection({
         isMobile={isMobile}
         newsletter={newsletter}
         onChange={onChange}
+        onImageUploadRejected={onImageUploadRejected}
         textStyleProps={textStyleProps}
       />
     )
@@ -440,6 +481,7 @@ function NewsletterContentSection({
         isMobile={isMobile}
         newsletter={newsletter}
         onChange={onChange}
+        onImageUploadRejected={onImageUploadRejected}
         textStyleProps={textStyleProps}
       />
     )
@@ -452,6 +494,7 @@ function NewsletterContentSection({
         isMobile={isMobile}
         newsletter={newsletter}
         onChange={onChange}
+        onImageUploadRejected={onImageUploadRejected}
         textStyleProps={textStyleProps}
       />
     )
@@ -464,6 +507,7 @@ function NewsletterContentSection({
         isMobile={isMobile}
         newsletter={newsletter}
         onChange={onChange}
+        onImageUploadRejected={onImageUploadRejected}
         textStyleProps={textStyleProps}
       />
     )
@@ -476,6 +520,7 @@ function NewsletterContentSection({
         newsletter={newsletter}
         section={section}
         onChange={onChange}
+        onImageUploadRejected={onImageUploadRejected}
         textStyleProps={textStyleProps}
       />
     )
@@ -488,6 +533,7 @@ function NewsletterContentSection({
         newsletter={newsletter}
         section={section}
         onChange={onChange}
+        onImageUploadRejected={onImageUploadRejected}
         textStyleProps={textStyleProps}
       />
     )
@@ -501,6 +547,7 @@ function NewsletterContentSection({
         newsletter={newsletter}
         section={section}
         onChange={onChange}
+        onImageUploadRejected={onImageUploadRejected}
         textStyleProps={textStyleProps}
       />
     )
@@ -514,6 +561,7 @@ function NewsletterContentSection({
         newsletter={newsletter}
         section={section}
         onChange={onChange}
+        onImageUploadRejected={onImageUploadRejected}
         textStyleProps={textStyleProps}
       />
     )
@@ -1264,6 +1312,7 @@ function EditableCustomImageSection({
   editable,
   newsletter,
   onChange,
+  onImageUploadRejected,
   section,
   textStyleProps,
 }: Omit<NewsletterContentSectionProps, "isMobile" | "type">) {
@@ -1297,11 +1346,16 @@ function EditableCustomImageSection({
                   <ImageIcon className="size-4" />
                   Selecionar imagem
                   <input
-                    accept="image/*"
+                    accept={RASTER_IMAGE_UPLOAD_ACCEPT}
                     className="sr-only"
                     type="file"
                     onChange={(event) =>
-                      updateCustomImageFromFile(event, onChange, section.id)
+                      updateCustomImageFromFile(
+                        event,
+                        onChange,
+                        onImageUploadRejected,
+                        section.id,
+                      )
                     }
                   />
                 </label>
@@ -1317,11 +1371,16 @@ function EditableCustomImageSection({
               Trocar imagem
             </span>
             <input
-              accept="image/*"
+              accept={RASTER_IMAGE_UPLOAD_ACCEPT}
               className="sr-only"
               type="file"
               onChange={(event) =>
-                updateCustomImageFromFile(event, onChange, section.id)
+                updateCustomImageFromFile(
+                  event,
+                  onChange,
+                  onImageUploadRejected,
+                  section.id,
+                )
               }
             />
           </label>
@@ -1348,14 +1407,39 @@ function EditableCustomImageSection({
   )
 }
 
+function validateInlineImageFile(
+  file: File,
+  onImageUploadRejected: (message: string) => void,
+) {
+  if (!isAcceptedImageFile(file, ACCEPTED_RASTER_IMAGE_TYPES)) {
+    onImageUploadRejected(createImageUploadRejectedMessage("imagem", "format"))
+    return false
+  }
+
+  if (file.size > MAX_SOURCE_IMAGE_SIZE) {
+    onImageUploadRejected(
+      createImageUploadRejectedMessage("imagem", "source-size", file),
+    )
+    return false
+  }
+
+  return true
+}
+
 function updateCustomImageFromFile(
   event: ChangeEvent<HTMLInputElement>,
   onChange: (updater: (draft: NewsletterTemplate) => void) => void,
-  sectionId: string
+  onImageUploadRejected: (message: string) => void,
+  sectionId: string,
 ) {
   const file = event.target.files?.[0]
 
   if (!file) {
+    return
+  }
+
+  if (!validateInlineImageFile(file, onImageUploadRejected)) {
+    event.target.value = ""
     return
   }
 
@@ -1376,6 +1460,7 @@ function EditableCustomMediaTextSection({
   isMobile,
   newsletter,
   onChange,
+  onImageUploadRejected,
   section,
   textStyleProps,
 }: Omit<NewsletterContentSectionProps, "type">) {
@@ -1413,11 +1498,16 @@ function EditableCustomMediaTextSection({
             {customSection.imageUrl ? "Trocar imagem" : "Selecionar imagem"}
           </span>
           <input
-            accept="image/*"
+            accept={RASTER_IMAGE_UPLOAD_ACCEPT}
             className="sr-only"
             type="file"
             onChange={(event) =>
-              updateCustomMediaTextImageFromFile(event, onChange, section.id)
+              updateCustomMediaTextImageFromFile(
+                event,
+                onChange,
+                onImageUploadRejected,
+                section.id,
+              )
             }
           />
         </label>
@@ -1529,11 +1619,17 @@ function EditableCustomMediaTextSection({
 function updateCustomMediaTextImageFromFile(
   event: ChangeEvent<HTMLInputElement>,
   onChange: (updater: (draft: NewsletterTemplate) => void) => void,
-  sectionId: string
+  onImageUploadRejected: (message: string) => void,
+  sectionId: string,
 ) {
   const file = event.target.files?.[0]
 
   if (!file) {
+    return
+  }
+
+  if (!validateInlineImageFile(file, onImageUploadRejected)) {
+    event.target.value = ""
     return
   }
 
@@ -1663,7 +1759,11 @@ type EditableSidebarProps = {
   newsletter: NewsletterTemplate
   onAttorneyPhotoChange: (event: ChangeEvent<HTMLInputElement>) => void
   onChange: (updater: (draft: NewsletterTemplate) => void) => void
+  onImageUploadRejected: (message: string) => void
   onRemoveAttorneyPhoto: () => void
+  onSaveAttorneyPhotoCrop: (
+    crop: NewsletterImageCrop,
+  ) => Promise<void> | void
   textStyleProps: (fieldId: string) => {
     onTextStyleChange: (style: NewsletterTextStyle) => void
     textStyle: NewsletterTextStyle | undefined
@@ -1676,7 +1776,9 @@ function EditableSidebar({
   newsletter,
   onAttorneyPhotoChange,
   onChange,
+  onImageUploadRejected,
   onRemoveAttorneyPhoto,
+  onSaveAttorneyPhotoCrop,
   textStyleProps,
 }: EditableSidebarProps) {
   const sidebarBlocks = (
@@ -1772,8 +1874,10 @@ function EditableSidebar({
                 onAttorneyPhotoChange={onAttorneyPhotoChange}
                 onChange={onChange}
                 onDelete={() => deleteSidebarBlock(block.id)}
+                onImageUploadRejected={onImageUploadRejected}
                 onMove={moveSidebarBlock}
                 onRemoveAttorneyPhoto={onRemoveAttorneyPhoto}
+                onSaveAttorneyPhotoCrop={onSaveAttorneyPhotoCrop}
                 textStyleProps={textStyleProps}
               />
             ))}
@@ -1789,7 +1893,9 @@ function EditableSidebar({
             onAttorneyPhotoChange={onAttorneyPhotoChange}
             onChange={onChange}
             onDelete={() => deleteSidebarBlock(block.id)}
+            onImageUploadRejected={onImageUploadRejected}
             onRemoveAttorneyPhoto={onRemoveAttorneyPhoto}
+            onSaveAttorneyPhotoCrop={onSaveAttorneyPhotoCrop}
             textStyleProps={textStyleProps}
           />
         ))
@@ -1807,7 +1913,11 @@ type EditableSidebarBlockProps = {
   onAttorneyPhotoChange: (event: ChangeEvent<HTMLInputElement>) => void
   onChange: (updater: (draft: NewsletterTemplate) => void) => void
   onDelete: () => void
+  onImageUploadRejected: (message: string) => void
   onRemoveAttorneyPhoto: () => void
+  onSaveAttorneyPhotoCrop: (
+    crop: NewsletterImageCrop,
+  ) => Promise<void> | void
   textStyleProps: (fieldId: string) => {
     onTextStyleChange: (style: NewsletterTextStyle) => void
     textStyle: NewsletterTextStyle | undefined
@@ -1821,7 +1931,9 @@ function EditableSidebarBlock({
   onAttorneyPhotoChange,
   onChange,
   onDelete,
+  onImageUploadRejected,
   onRemoveAttorneyPhoto,
+  onSaveAttorneyPhotoCrop,
   textStyleProps,
 }: EditableSidebarBlockProps) {
   return (
@@ -1844,7 +1956,9 @@ function EditableSidebarBlock({
         newsletter={newsletter}
         onAttorneyPhotoChange={onAttorneyPhotoChange}
         onChange={onChange}
+        onImageUploadRejected={onImageUploadRejected}
         onRemoveAttorneyPhoto={onRemoveAttorneyPhoto}
+        onSaveAttorneyPhotoCrop={onSaveAttorneyPhotoCrop}
         textStyleProps={textStyleProps}
       />
     </div>
@@ -1867,8 +1981,10 @@ function SortableEditableSidebarBlock({
   onAttorneyPhotoChange,
   onChange,
   onDelete,
+  onImageUploadRejected,
   onMove,
   onRemoveAttorneyPhoto,
+  onSaveAttorneyPhotoCrop,
   textStyleProps,
   total,
 }: SortableEditableSidebarBlockProps) {
@@ -1943,7 +2059,9 @@ function SortableEditableSidebarBlock({
         newsletter={newsletter}
         onAttorneyPhotoChange={onAttorneyPhotoChange}
         onChange={onChange}
+        onImageUploadRejected={onImageUploadRejected}
         onRemoveAttorneyPhoto={onRemoveAttorneyPhoto}
+        onSaveAttorneyPhotoCrop={onSaveAttorneyPhotoCrop}
         textStyleProps={textStyleProps}
       />
     </div>
@@ -1956,7 +2074,9 @@ function EditableSidebarBlockContent({
   newsletter,
   onAttorneyPhotoChange,
   onChange,
+  onImageUploadRejected,
   onRemoveAttorneyPhoto,
+  onSaveAttorneyPhotoCrop,
   textStyleProps,
 }: Omit<EditableSidebarBlockProps, "onDelete">) {
   if (block.type === "summary") {
@@ -2034,7 +2154,9 @@ function EditableSidebarBlockContent({
         newsletter={newsletter}
         onAttorneyPhotoChange={onAttorneyPhotoChange}
         onChange={onChange}
+        onImageUploadRejected={onImageUploadRejected}
         onRemoveAttorneyPhoto={onRemoveAttorneyPhoto}
+        onSaveAttorneyPhotoCrop={onSaveAttorneyPhotoCrop}
         textStyleProps={textStyleProps}
       />
     )
@@ -2070,6 +2192,7 @@ function EditableSidebarBlockContent({
           imageAlt={block.imageAlt}
           imageUrl={block.imageUrl}
           onChange={onChange}
+          onImageUploadRejected={onImageUploadRejected}
           type="sidebar-image"
         />
         <InlineText
@@ -2102,6 +2225,7 @@ function EditableSidebarBlockContent({
           imageAlt={block.imageAlt}
           imageUrl={block.imageUrl}
           onChange={onChange}
+          onImageUploadRejected={onImageUploadRejected}
           type="sidebar-media-text"
         />
         <InlineText
@@ -2194,6 +2318,7 @@ type SidebarImagePickerProps = {
   imageAlt?: string
   imageUrl?: string
   onChange: (updater: (draft: NewsletterTemplate) => void) => void
+  onImageUploadRejected: (message: string) => void
   type: "sidebar-image" | "sidebar-media-text"
 }
 
@@ -2203,6 +2328,7 @@ function SidebarImagePicker({
   imageAlt,
   imageUrl,
   onChange,
+  onImageUploadRejected,
   type,
 }: SidebarImagePickerProps) {
   return (
@@ -2228,11 +2354,17 @@ function SidebarImagePicker({
             {imageUrl ? "Trocar imagem" : "Selecionar imagem"}
           </span>
           <input
-            accept="image/*"
+            accept={RASTER_IMAGE_UPLOAD_ACCEPT}
             className="sr-only"
             type="file"
             onChange={(event) =>
-              updateSidebarImageFromFile(event, onChange, blockId, type)
+              updateSidebarImageFromFile(
+                event,
+                onChange,
+                onImageUploadRejected,
+                blockId,
+                type,
+              )
             }
           />
         </label>
@@ -2307,12 +2439,119 @@ function EditableMetaRow({
   )
 }
 
+type EditableCoverBannerProps = {
+  editable: boolean
+  isMobile: boolean
+  newsletter: NewsletterTemplate
+  onCoverImageChange: (event: ChangeEvent<HTMLInputElement>) => void
+  onRemoveCoverImage: () => void
+  onSaveCoverImageCrop: (
+    crop: NewsletterImageCrop,
+  ) => Promise<void> | void
+}
+
+function EditableCoverBanner({
+  editable,
+  isMobile,
+  newsletter,
+  onCoverImageChange,
+  onRemoveCoverImage,
+  onSaveCoverImageCrop,
+}: EditableCoverBannerProps) {
+  const cover = newsletter.cover
+  const imageUrl = cover?.imageUrl?.trim()
+
+  if (!editable && !imageUrl) {
+    return null
+  }
+
+  return (
+    <section
+      className={cn(
+        "border-b border-[#B7B783]/45 bg-[#ECE8D8] px-5 py-5",
+        isMobile && "px-4 py-4",
+      )}
+    >
+      <div
+        className={cn(
+          "mx-auto w-full",
+          isMobile ? "max-w-[430px]" : "max-w-[1280px]",
+        )}
+      >
+        <div
+          className={cn(
+            "group/cover relative flex aspect-[16/5] min-h-[120px] items-center justify-center overflow-hidden border border-[#B7B783] bg-[#F7F5EE]",
+            isMobile && "min-h-[92px]",
+          )}
+        >
+          {imageUrl ? (
+            <div
+              aria-label={cover?.imageAlt || "Banner da publicação"}
+              className="absolute inset-0 bg-cover bg-no-repeat transition-transform duration-200"
+              role="img"
+              style={newsletterImageCropBackgroundStyle(imageUrl, cover?.crop)}
+            />
+          ) : (
+            <div className="grid gap-2 text-center text-[#244F49]">
+              <ImageSymbol className="mx-auto size-8" />
+              <p className="text-sm font-semibold">Banner da publicação</p>
+            </div>
+          )}
+
+          {editable && (
+            <div className="absolute inset-0 flex flex-wrap items-center justify-center gap-2 bg-[#163B35]/0 p-3 opacity-0 transition-opacity group-hover/cover:bg-[#163B35]/70 group-hover/cover:opacity-100 group-focus-within/cover:bg-[#163B35]/70 group-focus-within/cover:opacity-100">
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-sm bg-[#F7F5EE] px-3 py-2 text-xs font-semibold text-[#163B35] shadow-sm transition-colors hover:bg-white">
+                <ImageIcon className="size-4" />
+                {imageUrl ? "Trocar banner" : "Enviar banner"}
+                <input
+                  accept={RASTER_IMAGE_UPLOAD_ACCEPT}
+                  className="sr-only"
+                  onChange={onCoverImageChange}
+                  type="file"
+                />
+              </label>
+              {imageUrl ? (
+                <>
+                  <PhotoCropDialog
+                    crop={cover?.crop}
+                    imageUrl={imageUrl}
+                    onApply={onSaveCoverImageCrop}
+                    previewClassName="aspect-[16/5]"
+                    title="Editar banner"
+                    triggerLabel="Editar corte"
+                  />
+                  <button
+                    className="inline-flex items-center gap-2 rounded-sm bg-[#F7F5EE] px-3 py-2 text-xs font-semibold text-[#163B35] shadow-sm transition-colors hover:bg-white"
+                    onClick={onRemoveCoverImage}
+                    type="button"
+                  >
+                    <ImageOff className="size-4" />
+                    Remover
+                  </button>
+                </>
+              ) : null}
+            </div>
+          )}
+        </div>
+        {editable ? (
+          <p className="mt-2 text-[11px] font-medium leading-5 text-[#4F5549]">
+            Recomendado: 1600 x 500 px, JPG/WebP, até 300 KB. O sistema
+            compacta imagens grandes, mas banners leves evitam travamento em
+            listas com muitas publicações.
+          </p>
+        ) : null}
+      </div>
+    </section>
+  )
+}
+
 function EditableAttorneyCard({
   editable,
   newsletter,
   onAttorneyPhotoChange,
   onChange,
   onRemoveAttorneyPhoto,
+  onSaveAttorneyPhotoCrop,
   textStyleProps,
 }: Omit<EditableSidebarProps, "isMobile">) {
   const attorney = newsletter.attorney
@@ -2328,9 +2567,12 @@ function EditableAttorneyCard({
           {attorney.photoUrl ? (
             <div
               aria-label={attorney.photoAlt ?? name}
-              className="h-full w-full bg-cover bg-center"
+              className="absolute inset-0 bg-cover bg-no-repeat transition-transform duration-200"
               role="img"
-              style={{ backgroundImage: `url(${attorney.photoUrl})` }}
+              style={newsletterImageCropBackgroundStyle(
+                attorney.photoUrl,
+                attorney.photoCrop,
+              )}
             />
           ) : (
             <div className="grid size-24 place-items-center rounded-full border border-[#B7B783] bg-[#F7F5EE] text-3xl font-semibold text-[#244F49] shadow-[0_0_0_9px_rgba(183,183,131,0.18)]">
@@ -2344,21 +2586,28 @@ function EditableAttorneyCard({
                 <ImageIcon className="size-4" />
                 Trocar foto
                 <input
-                  accept="image/*"
+                  accept={RASTER_IMAGE_UPLOAD_ACCEPT}
                   className="sr-only"
                   onChange={onAttorneyPhotoChange}
                   type="file"
                 />
               </label>
               {attorney.photoUrl && (
-                <button
-                  className="inline-flex items-center gap-2 rounded-sm bg-[#F7F5EE] px-3 py-2 text-xs font-semibold text-[#163B35] shadow-sm"
-                  onClick={onRemoveAttorneyPhoto}
-                  type="button"
-                >
-                  <ImageOff className="size-4" />
-                  Remover
-                </button>
+                <>
+                  <PhotoCropDialog
+                    crop={attorney.photoCrop}
+                    imageUrl={attorney.photoUrl}
+                    onApply={onSaveAttorneyPhotoCrop}
+                  />
+                  <button
+                    className="inline-flex items-center gap-2 rounded-sm bg-[#F7F5EE] px-3 py-2 text-xs font-semibold text-[#163B35] shadow-sm transition-colors hover:bg-white"
+                    onClick={onRemoveAttorneyPhoto}
+                    type="button"
+                  >
+                    <ImageOff className="size-4" />
+                    Remover
+                  </button>
+                </>
               )}
             </div>
           )}
@@ -2813,12 +3062,18 @@ function createSidebarBlock(
 function updateSidebarImageFromFile(
   event: ChangeEvent<HTMLInputElement>,
   onChange: (updater: (draft: NewsletterTemplate) => void) => void,
+  onImageUploadRejected: (message: string) => void,
   blockId: string,
-  type: "sidebar-image" | "sidebar-media-text"
+  type: "sidebar-image" | "sidebar-media-text",
 ) {
   const file = event.target.files?.[0]
 
   if (!file) {
+    return
+  }
+
+  if (!validateInlineImageFile(file, onImageUploadRejected)) {
+    event.target.value = ""
     return
   }
 

@@ -23,6 +23,18 @@ export type NewsletterFirm = {
   logoAlt?: string
 }
 
+export type NewsletterImageCrop = {
+  positionX: number
+  positionY: number
+  zoom: number
+}
+
+export type NewsletterCover = {
+  imageAlt?: string
+  imageUrl?: string
+  crop?: NewsletterImageCrop
+}
+
 export type NewsletterTextStyle = {
   align?: "left" | "center" | "right"
   blockWidth?: number
@@ -63,6 +75,7 @@ export type NewsletterAttorney = {
   initials: string
   photoUrl?: string
   photoAlt?: string
+  photoCrop?: NewsletterImageCrop
 }
 
 export type NewsletterCta = {
@@ -198,6 +211,7 @@ export type NewsletterTemplate = {
   textStyles?: Record<string, NewsletterTextStyle>
   header: NewsletterHeader
   firm: NewsletterFirm
+  cover?: NewsletterCover
   banner: string
   category: string
   title: string

@@ -8,6 +8,7 @@ import { getCurrentUserNewsletterProfile } from "yes@/lib/newsletter/profile-ser
 import type { NewsletterRow } from "yes@/lib/supabase/database.types"
 import { hasSupabaseEnv } from "yes@/lib/supabase/env"
 import { createClient } from "yes@/lib/supabase/server"
+import { saveNewsletterProfileAction } from "../../../configuracoes/actions"
 import {
   publishNewsletterAction,
   unpublishNewsletterAction,
@@ -75,6 +76,7 @@ export default async function EditarInformativoPage({
       isPersisted
       onPublish={publishNewsletterAction.bind(null, data.id)}
       onSaveDraft={updateNewsletterAction.bind(null, data.id)}
+      onSaveProfile={saveNewsletterProfileAction}
       onUnpublish={unpublishNewsletterAction.bind(null, data.id)}
     />
   )

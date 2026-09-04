@@ -5,19 +5,46 @@ import { ImageIcon, RotateCcw, Save, Upload } from "lucide-react"
 
 import { Button } from "yes@/components/ui/button"
 import {
+  ACCEPTED_LOGO_IMAGE_TYPES,
+  ACCEPTED_RASTER_IMAGE_TYPES,
+  createImageUploadRejectedMessage,
+  imageFileToDataUrl,
+  isAcceptedImageFile,
+  LOGO_IMAGE_UPLOAD_ACCEPT,
+  MAX_SAVED_IMAGE_LENGTH,
+  MAX_SOURCE_IMAGE_SIZE,
+  RASTER_IMAGE_UPLOAD_ACCEPT,
+} from "yes@/lib/newsletter/browser-image"
+import {
+  defaultNewsletterImageCrop,
+  newsletterImageCropBackgroundStyle,
+} from "yes@/lib/newsletter/image-crop"
+import {
   defaultNewsletterProfile,
   normalizeNewsletterProfile,
   type NewsletterProfile,
 } from "yes@/lib/newsletter/profile"
+import type { NewsletterImageCrop } from "yes@/lib/newsletter/types"
 import type { SaveNewsletterProfileResult } from "yes@/app/dashboard/configuracoes/actions"
+import { cn } from "yes@/lib/utils"
 
-const MAX_SAVED_IMAGE_LENGTH = 900_000
-const MAX_SOURCE_IMAGE_SIZE = 6_000_000
-const RASTER_IMAGE_MAX_EDGE = 1200
+import { ImageUploadWarning } from "./image-upload-warning"
+import { PhotoCropDialog } from "./photo-crop-dialog"
+
+type NewsletterProfileTextField = {
+  [Key in keyof NewsletterProfile]: NewsletterProfile[Key] extends string
+    ? Key
+    : never
+}[keyof NewsletterProfile]
+
+type PendingAttorneyPhoto = {
+  imageAlt: string
+  imageUrl: string
+}
 
 type TextField = {
   helper?: string
-  id: keyof NewsletterProfile
+  id: NewsletterProfileTextField
   label: string
   multiline?: boolean
 }
@@ -136,9 +163,14 @@ export function NewsletterSettingsForm({
     normalizeNewsletterProfile(initialProfile),
   )
   const [feedback, setFeedback] = useState<string | null>(initialError ?? null)
+  const [imageUploadWarning, setImageUploadWarning] = useState<string | null>(
+    null,
+  )
   const [isSaving, setIsSaving] = useState(false)
+  const [pendingAttorneyPhoto, setPendingAttorneyPhoto] =
+    useState<PendingAttorneyPhoto | null>(null)
 
-  function updateField(field: keyof NewsletterProfile, value: string) {
+  function updateField(field: NewsletterProfileTextField, value: string) {
     setProfile((current) => {
       const next = {
         ...current,
@@ -165,6 +197,19 @@ export function NewsletterSettingsForm({
     })
   }
 
+  function updateAttorneyPhotoCrop(crop: NewsletterImageCrop) {
+    setProfile((current) => ({
+      ...current,
+      attorneyPhotoCrop: crop,
+    }))
+    setFeedback("Corte ajustado. Clique em salvar para aplicar.")
+  }
+
+  function showImageUploadRejected(message: string) {
+    setFeedback(message)
+    setImageUploadWarning(message)
+  }
+
   async function uploadImage(
     field: "attorneyPhotoUrl" | "firmLogoUrl",
     event: ChangeEvent<HTMLInputElement>,
@@ -175,8 +220,22 @@ export function NewsletterSettingsForm({
       return
     }
 
+    const kind = field === "firmLogoUrl" ? "logo" : "foto"
+    const acceptedTypes =
+      field === "firmLogoUrl"
+        ? ACCEPTED_LOGO_IMAGE_TYPES
+        : ACCEPTED_RASTER_IMAGE_TYPES
+
+    if (!isAcceptedImageFile(file, acceptedTypes)) {
+      showImageUploadRejected(createImageUploadRejectedMessage(kind, "format"))
+      event.target.value = ""
+      return
+    }
+
     if (file.size > MAX_SOURCE_IMAGE_SIZE) {
-      setFeedback("Use uma imagem menor que 6 MB.")
+      showImageUploadRejected(
+        createImageUploadRejectedMessage(kind, "source-size", file),
+      )
       event.target.value = ""
       return
     }
@@ -185,15 +244,29 @@ export function NewsletterSettingsForm({
       const dataUrl = await imageFileToDataUrl(file)
 
       if (dataUrl.length > MAX_SAVED_IMAGE_LENGTH) {
-        setFeedback("Essa imagem ficou pesada demais. Use uma versão menor.")
+        showImageUploadRejected(
+          createImageUploadRejectedMessage(kind, "saved-size", file),
+        )
         event.target.value = ""
         return
       }
 
-      updateField(field, dataUrl)
+      if (field === "attorneyPhotoUrl") {
+        setPendingAttorneyPhoto({
+          imageAlt: file.name,
+          imageUrl: dataUrl,
+        })
+        setFeedback("Ajuste o corte da foto antes de aplicar.")
+        return
+      }
+
+      setProfile((current) => ({
+        ...current,
+        [field]: dataUrl,
+      }))
       setFeedback("Imagem carregada. Clique em salvar para aplicar.")
     } catch {
-      setFeedback("Não foi possível carregar essa imagem.")
+      showImageUploadRejected(createImageUploadRejectedMessage(kind, "read"))
     }
 
     event.target.value = ""
@@ -222,6 +295,21 @@ export function NewsletterSettingsForm({
     await saveProfile(defaultNewsletterProfile)
   }
 
+  function applyPendingAttorneyPhoto(crop: NewsletterImageCrop) {
+    if (!pendingAttorneyPhoto) {
+      return
+    }
+
+    setProfile((current) => ({
+      ...current,
+      attorneyPhotoAlt: pendingAttorneyPhoto.imageAlt,
+      attorneyPhotoCrop: crop,
+      attorneyPhotoUrl: pendingAttorneyPhoto.imageUrl,
+    }))
+    setPendingAttorneyPhoto(null)
+    setFeedback("Foto aplicada. Clique em salvar configurações.")
+  }
+
   return (
     <section className="mx-auto w-full max-w-[1040px] px-5 py-8 sm:px-7 lg:px-8">
       <div className="border-b border-black/10 pb-6">
@@ -247,16 +335,39 @@ export function NewsletterSettingsForm({
       <div className="mt-8 grid gap-5">
         <div className="grid gap-5 lg:grid-cols-2">
           <ImageUploadCard
+            accept={LOGO_IMAGE_UPLOAD_ACCEPT}
+            helper="Use JPG, PNG, WebP ou SVG, menor que 6 MB."
             label="Logo oficial"
             value={profile.firmLogoUrl}
             onChange={(event) => void uploadImage("firmLogoUrl", event)}
           />
           <ImageUploadCard
+            accept={RASTER_IMAGE_UPLOAD_ACCEPT}
+            crop={profile.attorneyPhotoCrop}
+            helper="Use JPG, PNG ou WebP, menor que 6 MB, com boa iluminação e sem cortes muito fechados."
             label="Foto do advogado"
             value={profile.attorneyPhotoUrl}
+            onCropChange={updateAttorneyPhotoCrop}
             onChange={(event) => void uploadImage("attorneyPhotoUrl", event)}
           />
         </div>
+
+        {pendingAttorneyPhoto ? (
+          <PhotoCropDialog
+            confirmLabel="Aplicar foto"
+            crop={defaultNewsletterImageCrop}
+            imageUrl={pendingAttorneyPhoto.imageUrl}
+            open
+            showTrigger={false}
+            title="Ajustar foto"
+            onApply={applyPendingAttorneyPhoto}
+            onOpenChange={(open) => {
+              if (!open) {
+                setPendingAttorneyPhoto(null)
+              }
+            }}
+          />
+        ) : null}
 
         {fieldGroups.map((group) => (
           <div
@@ -338,84 +449,34 @@ export function NewsletterSettingsForm({
           ) : null}
         </div>
       </div>
+
+      <ImageUploadWarning
+        message={imageUploadWarning}
+        onClose={() => setImageUploadWarning(null)}
+      />
     </section>
   )
 }
 
-function readFileAsDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader()
-
-    reader.onerror = () => reject(reader.error)
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        resolve(reader.result)
-        return
-      }
-
-      reject(new Error("Invalid image result"))
-    }
-
-    reader.readAsDataURL(file)
-  })
-}
-
-function loadImage(url: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new Image()
-
-    image.onerror = reject
-    image.onload = () => resolve(image)
-    image.src = url
-  })
-}
-
-async function imageFileToDataUrl(file: File) {
-  if (file.type === "image/svg+xml") {
-    return readFileAsDataUrl(file)
-  }
-
-  const objectUrl = URL.createObjectURL(file)
-
-  try {
-    const image = await loadImage(objectUrl)
-    const scale = Math.min(
-      1,
-      RASTER_IMAGE_MAX_EDGE / Math.max(image.width, image.height),
-    )
-    const canvas = document.createElement("canvas")
-    canvas.width = Math.max(1, Math.round(image.width * scale))
-    canvas.height = Math.max(1, Math.round(image.height * scale))
-
-    const context = canvas.getContext("2d")
-
-    if (!context) {
-      return readFileAsDataUrl(file)
-    }
-
-    context.drawImage(image, 0, 0, canvas.width, canvas.height)
-
-    let quality = 0.86
-    let dataUrl = canvas.toDataURL("image/webp", quality)
-
-    while (dataUrl.length > MAX_SAVED_IMAGE_LENGTH && quality > 0.58) {
-      quality -= 0.08
-      dataUrl = canvas.toDataURL("image/webp", quality)
-    }
-
-    return dataUrl
-  } finally {
-    URL.revokeObjectURL(objectUrl)
-  }
-}
-
 type ImageUploadCardProps = {
+  accept: string
+  crop?: NewsletterImageCrop
+  helper: string
   label: string
   onChange: (event: ChangeEvent<HTMLInputElement>) => void
+  onCropChange?: (crop: NewsletterImageCrop) => void
   value: string
 }
 
-function ImageUploadCard({ label, onChange, value }: ImageUploadCardProps) {
+function ImageUploadCard({
+  accept,
+  crop,
+  helper,
+  label,
+  onChange,
+  onCropChange,
+  value,
+}: ImageUploadCardProps) {
   return (
     <div className="rounded-xl border border-black/10 bg-white p-5 shadow-[0_18px_70px_rgba(0,0,0,0.05)]">
       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-black/45">
@@ -424,25 +485,48 @@ function ImageUploadCard({ label, onChange, value }: ImageUploadCardProps) {
       <div className="mt-4 grid gap-4 sm:grid-cols-[180px_minmax(0,1fr)] sm:items-center">
         <div
           aria-label={label}
-          className="grid aspect-[16/10] w-full place-items-center overflow-hidden rounded-lg border border-black/10 bg-neutral-100 bg-contain bg-center bg-no-repeat text-black/30"
+          className="relative grid aspect-[16/10] w-full place-items-center overflow-hidden rounded-lg border border-black/10 bg-neutral-100 text-black/30"
           role="img"
-          style={value ? { backgroundImage: `url(${value})` } : undefined}
         >
+          {value ? (
+            <div
+              className={cn(
+                "absolute inset-0 bg-center bg-no-repeat",
+                crop ? "bg-cover" : "bg-contain",
+              )}
+              style={
+                crop
+                  ? newsletterImageCropBackgroundStyle(value, crop)
+                  : { backgroundImage: `url(${value})` }
+              }
+            />
+          ) : null}
           {!value ? <ImageIcon className="size-7" /> : null}
         </div>
         <div className="min-w-0">
-          <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-lg border border-black/15 bg-white px-3 text-sm font-semibold text-black transition-colors hover:bg-black hover:text-white">
-            <Upload className="size-4" />
-            Enviar imagem
-            <input
-              accept="image/*"
-              className="sr-only"
-              onChange={onChange}
-              type="file"
-            />
-          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-lg border border-black/15 bg-white px-3 text-sm font-semibold text-black transition-colors hover:bg-black hover:text-white">
+              <Upload className="size-4" />
+              Enviar imagem
+              <input
+                accept={accept}
+                className="sr-only"
+                onChange={onChange}
+                type="file"
+              />
+            </label>
+            {value && crop && onCropChange ? (
+              <PhotoCropDialog
+                crop={crop}
+                imageUrl={value}
+                onApply={onCropChange}
+                triggerClassName="h-10 rounded-lg border border-black/15 bg-white px-3 text-sm text-black hover:bg-black hover:text-white"
+                triggerLabel="Editar corte"
+              />
+            ) : null}
+          </div>
           <p className="mt-3 text-xs leading-5 text-black/45">
-            Use JPG, PNG ou SVG. Para salvar sem travar, prefira arquivos leves.
+            {helper}
           </p>
         </div>
       </div>

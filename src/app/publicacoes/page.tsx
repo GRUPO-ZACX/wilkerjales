@@ -10,6 +10,8 @@ import {
   getPublishedNewsletters,
   type PublishedNewsletter,
 } from "yes@/lib/newsletter/publication"
+import { newsletterImageCropBackgroundStyle } from "yes@/lib/newsletter/image-crop"
+import type { NewsletterImageCrop } from "yes@/lib/newsletter/types"
 import { asset } from "yes@/lib/site/content"
 
 export const dynamic = "force-dynamic"
@@ -22,6 +24,9 @@ export const metadata: Metadata = {
 
 type PublishedNewsletterCard = {
   category: string
+  coverCrop?: NewsletterImageCrop
+  coverImageAlt?: string
+  coverImageUrl?: string
   dateLabel: string
   excerpt: string
   href: string
@@ -54,6 +59,9 @@ function toPublishedNewsletterCard(
 
   return {
     category: newsletter.category.trim() || "Informativo jurídico",
+    coverCrop: newsletter.cover?.crop,
+    coverImageAlt: newsletter.cover?.imageAlt,
+    coverImageUrl: newsletter.cover?.imageUrl?.trim() || undefined,
     dateLabel: formatNewsletterDate(publication),
     excerpt: getNewsletterExcerpt(newsletter),
     href: `/informativo/${publication.slug}`,
@@ -90,30 +98,63 @@ export default async function PublicacoesPage() {
                   href={newsletter.href}
                   key={newsletter.id}
                 >
-                  <div className="flex h-[220px] flex-col justify-between bg-[#f3f3ea] p-6">
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="inline-flex size-11 items-center justify-center rounded-full bg-[#336666] text-white">
-                        <FileText size={20} aria-hidden />
-                      </span>
-                      <span className="site-serif text-sm text-[#a3a373]">
-                        {newsletter.issue}
-                      </span>
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#336666]">
-                        Informativo
-                      </p>
-                      <p className="site-serif mt-3 text-[26px] leading-tight text-[#a3a373]">
-                        {newsletter.category}
-                      </p>
-                      {newsletter.period ? (
-                        <p className="mt-3 text-sm text-black/55">
-                          {newsletter.period}
+                  {newsletter.coverImageUrl ? (
+                    <div className="relative h-[220px] overflow-hidden bg-[#f3f3ea]">
+                      <div
+                        aria-label={
+                          newsletter.coverImageAlt || newsletter.title
+                        }
+                        className="absolute inset-0 bg-cover bg-no-repeat"
+                        role="img"
+                        style={newsletterImageCropBackgroundStyle(
+                          newsletter.coverImageUrl,
+                          newsletter.coverCrop,
+                        )}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#163b35]/82 via-[#163b35]/18 to-transparent" />
+                      <div className="absolute inset-x-0 bottom-0 p-6 text-white">
+                        <div className="flex items-center justify-between gap-4">
+                          <span className="inline-flex size-11 items-center justify-center rounded-full bg-white/92 text-[#336666]">
+                            <FileText size={20} aria-hidden />
+                          </span>
+                          <span className="site-serif text-sm text-white/85">
+                            {newsletter.issue}
+                          </span>
+                        </div>
+                        <p className="mt-8 text-xs font-medium uppercase tracking-[0.18em] text-white/85">
+                          Informativo
                         </p>
-                      ) : null}
+                        <p className="site-serif mt-2 line-clamp-2 text-[24px] leading-tight text-white">
+                          {newsletter.category}
+                        </p>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="flex h-[220px] flex-col justify-between bg-[#f3f3ea] p-6">
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="inline-flex size-11 items-center justify-center rounded-full bg-[#336666] text-white">
+                          <FileText size={20} aria-hidden />
+                        </span>
+                        <span className="site-serif text-sm text-[#a3a373]">
+                          {newsletter.issue}
+                        </span>
+                      </div>
+
+                      <div>
+                        <p className="text-xs font-medium uppercase tracking-[0.18em] text-[#336666]">
+                          Informativo
+                        </p>
+                        <p className="site-serif mt-3 text-[26px] leading-tight text-[#a3a373]">
+                          {newsletter.category}
+                        </p>
+                        {newsletter.period ? (
+                          <p className="mt-3 text-sm text-black/55">
+                            {newsletter.period}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="flex min-h-[310px] flex-col p-6">
                     <h3 className="border-l-[4px] border-[#c4c496] pl-4 text-[22px] font-semibold leading-snug tracking-[-0.01em] text-[#336666] transition-colors duration-200 group-hover:text-[#163b35]">

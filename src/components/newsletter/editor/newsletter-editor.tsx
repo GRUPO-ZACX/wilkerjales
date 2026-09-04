@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation"
 import {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
   type ChangeEvent,
@@ -31,9 +30,17 @@ import {
 import { Button } from "yes@/components/ui/button"
 import {
   NEWSLETTER_CONTENT_IMPORT_AI_MEMORY,
-  NEWSLETTER_CONTENT_IMPORT_SAMPLE,
   parseNewsletterContentImport,
 } from "yes@/lib/newsletter/content-import"
+import {
+  ACCEPTED_RASTER_IMAGE_TYPES,
+  createImageUploadRejectedMessage,
+  imageFileToDataUrl,
+  isAcceptedImageFile,
+  MAX_SAVED_IMAGE_LENGTH,
+  MAX_SOURCE_IMAGE_SIZE,
+} from "yes@/lib/newsletter/browser-image"
+import { defaultNewsletterImageCrop } from "yes@/lib/newsletter/image-crop"
 import {
   applyNewsletterProfile,
   defaultNewsletterProfile,
@@ -41,7 +48,10 @@ import {
   type NewsletterProfile,
 } from "yes@/lib/newsletter/profile"
 import { getNewsletterSections } from "yes@/lib/newsletter/sections"
-import type { NewsletterTemplate } from "yes@/lib/newsletter/types"
+import type {
+  NewsletterImageCrop,
+  NewsletterTemplate,
+} from "yes@/lib/newsletter/types"
 import type { NewsletterStatus } from "yes@/lib/supabase/database.types"
 import { cn } from "yes@/lib/utils"
 
@@ -49,6 +59,8 @@ import {
   NewsletterInlineCanvas,
   type NewsletterEditorViewport,
 } from "./newsletter-inline-canvas"
+import { PhotoCropDialog } from "./photo-crop-dialog"
+import { ImageUploadWarning } from "./image-upload-warning"
 
 type NewsletterEditorProps = {
   backHref?: string
@@ -58,6 +70,7 @@ type NewsletterEditorProps = {
   isPersisted?: boolean
   onPublish?: NewsletterEditorAction
   onSaveDraft?: NewsletterEditorAction
+  onSaveProfile?: NewsletterProfileEditorAction
   onUnpublish?: NewsletterEditorAction
 }
 
@@ -74,6 +87,22 @@ export type NewsletterEditorAction = (
 type PreviewMode = "edit" | "public"
 
 const HISTORY_LIMIT = 100
+const COVER_IMAGE_MAX_EDGE = 1600
+const COVER_IMAGE_MAX_SAVED_LENGTH = 520_000
+
+type NewsletterProfileEditorAction = (
+  profile: NewsletterProfile,
+) => Promise<{
+  ok: boolean
+  error?: string
+  profile?: NewsletterProfile
+}>
+
+type PendingCropUpload = {
+  imageAlt: string
+  imageUrl: string
+  kind: "attorney" | "cover"
+}
 
 function cloneNewsletter(newsletter: NewsletterTemplate): NewsletterTemplate {
   return JSON.parse(JSON.stringify(newsletter)) as NewsletterTemplate
@@ -102,13 +131,14 @@ export function NewsletterEditor({
   isPersisted = false,
   onPublish,
   onSaveDraft,
+  onSaveProfile,
   onUnpublish,
 }: NewsletterEditorProps) {
   const router = useRouter()
-  const fixedProfile = useMemo(
-    () => normalizeNewsletterProfile(initialProfile),
-    [initialProfile],
+  const [fixedProfile, setFixedProfile] = useState<NewsletterProfile>(() =>
+    normalizeNewsletterProfile(initialProfile),
   )
+  const fixedProfileRef = useRef(fixedProfile)
   const initialNewsletterSnapshot = createEditorInitialNewsletter(
     applyNewsletterProfile(initialNewsletter, fixedProfile),
   )
@@ -121,7 +151,6 @@ export function NewsletterEditor({
     future: [],
     past: [],
   })
-  const objectUrlsRef = useRef<Set<string>>(new Set())
   const [historyAvailability, setHistoryAvailability] = useState({
     canRedo: false,
     canUndo: false,
@@ -131,21 +160,21 @@ export function NewsletterEditor({
   )
   const [previewMode, setPreviewMode] = useState<PreviewMode>("edit")
   const [viewport, setViewport] = useState<NewsletterEditorViewport>("desktop")
-  const [, setAttorneyPhotoObjectUrl] = useState<string | null>(null)
   const [status, setStatus] = useState<NewsletterStatus>(initialStatus)
   const [feedback, setFeedback] = useState<string | null>(null)
+  const [imageUploadWarning, setImageUploadWarning] = useState<string | null>(
+    null,
+  )
   const [isSaving, setIsSaving] = useState(false)
   const [copiedPublicLink, setCopiedPublicLink] = useState(false)
   const [isImportOpen, setIsImportOpen] = useState(false)
   const [contentImportDraft, setContentImportDraft] = useState("")
-
-  useEffect(() => {
-    const objectUrls = objectUrlsRef.current
-
-    return () => {
-      objectUrls.forEach((url) => URL.revokeObjectURL(url))
-    }
-  }, [])
+  const [showMemoryCopied, setShowMemoryCopied] = useState(false)
+  const memoryCopiedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  )
+  const [pendingCropUpload, setPendingCropUpload] =
+    useState<PendingCropUpload | null>(null)
 
   const syncHistory = useCallback((history: typeof historyRef.current) => {
     historyRef.current = history
@@ -202,6 +231,16 @@ export function NewsletterEditor({
     },
     [commitNewsletter],
   )
+
+  function updateFixedProfile(nextProfile: NewsletterProfile) {
+    fixedProfileRef.current = nextProfile
+    setFixedProfile(nextProfile)
+  }
+
+  function showImageUploadRejected(message: string) {
+    setFeedback(message)
+    setImageUploadWarning(message)
+  }
 
   const undoNewsletterChange = useCallback(() => {
     const previousNewsletter = historyRef.current.past.at(-1)
@@ -279,36 +318,221 @@ export function NewsletterEditor({
     }
   }, [redoNewsletterChange, undoNewsletterChange])
 
-  function handleAttorneyPhotoChange(event: ChangeEvent<HTMLInputElement>) {
+  useEffect(() => {
+    return () => {
+      if (memoryCopiedTimeoutRef.current) {
+        clearTimeout(memoryCopiedTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  async function saveFixedProfile(
+    nextProfile: NewsletterProfile,
+    successMessage: string,
+  ) {
+    const normalizedProfile = normalizeNewsletterProfile(nextProfile)
+    const profiledNewsletter = applyNewsletterProfile(
+      newsletterRef.current,
+      normalizedProfile,
+    )
+
+    updateFixedProfile(normalizedProfile)
+    commitNewsletter(profiledNewsletter)
+
+    if (!onSaveProfile) {
+      setFeedback(successMessage)
+      return
+    }
+
+    setIsSaving(true)
+    let result: Awaited<ReturnType<NewsletterProfileEditorAction>>
+
+    try {
+      result = await onSaveProfile(normalizedProfile)
+    } catch {
+      setFeedback("Não foi possível salvar a configuração agora.")
+      setIsSaving(false)
+      return
+    }
+
+    setIsSaving(false)
+
+    if (!result.ok) {
+      setFeedback(result.error ?? "Não foi possível salvar a configuração.")
+      return
+    }
+
+    const savedProfile = normalizeNewsletterProfile(
+      result.profile ?? normalizedProfile,
+    )
+    updateFixedProfile(savedProfile)
+    commitNewsletter(applyNewsletterProfile(newsletterRef.current, savedProfile))
+    setFeedback(successMessage)
+  }
+
+  async function handleAttorneyPhotoChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
 
     if (!file) {
       return
     }
 
-    const nextUrl = URL.createObjectURL(file)
-    objectUrlsRef.current.add(nextUrl)
-    setAttorneyPhotoObjectUrl(nextUrl)
+    if (!isAcceptedImageFile(file, ACCEPTED_RASTER_IMAGE_TYPES)) {
+      showImageUploadRejected(createImageUploadRejectedMessage("foto", "format"))
+      event.target.value = ""
+      return
+    }
+
+    if (file.size > MAX_SOURCE_IMAGE_SIZE) {
+      showImageUploadRejected(
+        createImageUploadRejectedMessage("foto", "source-size", file),
+      )
+      event.target.value = ""
+      return
+    }
+
+    try {
+      const nextUrl = await imageFileToDataUrl(file)
+
+      if (nextUrl.length > MAX_SAVED_IMAGE_LENGTH) {
+        showImageUploadRejected(
+          createImageUploadRejectedMessage("foto", "saved-size", file),
+        )
+        event.target.value = ""
+        return
+      }
+
+      setPendingCropUpload({
+        imageAlt: file.name,
+        imageUrl: nextUrl,
+        kind: "attorney",
+      })
+      setFeedback("Ajuste o corte da foto antes de aplicar.")
+    } catch {
+      showImageUploadRejected(createImageUploadRejectedMessage("foto", "read"))
+    } finally {
+      event.target.value = ""
+    }
+  }
+
+  async function handleCoverImageChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+
+    if (!file) {
+      return
+    }
+
+    if (!isAcceptedImageFile(file, ACCEPTED_RASTER_IMAGE_TYPES)) {
+      showImageUploadRejected(
+        createImageUploadRejectedMessage("banner", "format"),
+      )
+      event.target.value = ""
+      return
+    }
+
+    if (file.size > MAX_SOURCE_IMAGE_SIZE) {
+      showImageUploadRejected(
+        createImageUploadRejectedMessage("banner", "source-size", file),
+      )
+      event.target.value = ""
+      return
+    }
+
+    try {
+      const nextUrl = await imageFileToDataUrl(file, {
+        initialQuality: 0.82,
+        maxEdge: COVER_IMAGE_MAX_EDGE,
+        maxSavedLength: COVER_IMAGE_MAX_SAVED_LENGTH,
+        minQuality: 0.5,
+      })
+
+      if (nextUrl.length > COVER_IMAGE_MAX_SAVED_LENGTH) {
+        showImageUploadRejected(
+          createImageUploadRejectedMessage("banner", "saved-size", file),
+        )
+        event.target.value = ""
+        return
+      }
+
+      setPendingCropUpload({
+        imageAlt: file.name,
+        imageUrl: nextUrl,
+        kind: "cover",
+      })
+      setFeedback("Ajuste o corte do banner antes de aplicar.")
+    } catch {
+      showImageUploadRejected(createImageUploadRejectedMessage("banner", "read"))
+    } finally {
+      event.target.value = ""
+    }
+  }
+
+  function removeCoverImage() {
+    updateNewsletter((draft) => {
+      draft.cover = {
+        ...(draft.cover ?? {}),
+        crop: defaultNewsletterImageCrop,
+        imageAlt: undefined,
+        imageUrl: undefined,
+      }
+    })
+    setFeedback("Banner removido. Clique em salvar para aplicar.")
+  }
+
+  function saveCoverImageCrop(crop: NewsletterImageCrop) {
+    updateNewsletter((draft) => {
+      draft.cover = {
+        ...(draft.cover ?? {}),
+        crop,
+      }
+    })
+    setFeedback("Corte do banner ajustado. Clique em salvar para aplicar.")
+  }
+
+  async function applyPendingCropUpload(crop: NewsletterImageCrop) {
+    if (!pendingCropUpload) {
+      return
+    }
+
+    if (pendingCropUpload.kind === "attorney") {
+      await saveFixedProfile(
+        {
+          ...fixedProfileRef.current,
+          attorneyPhotoAlt: pendingCropUpload.imageAlt,
+          attorneyPhotoCrop: crop,
+          attorneyPhotoUrl: pendingCropUpload.imageUrl,
+        },
+        "Foto do advogado salva nas configurações globais.",
+      )
+      setPendingCropUpload(null)
+      return
+    }
 
     updateNewsletter((draft) => {
-      draft.attorney.photoUrl = nextUrl
-      draft.attorney.photoAlt = file.name
+      draft.cover = {
+        ...(draft.cover ?? {}),
+        crop,
+        imageAlt: pendingCropUpload.imageAlt,
+        imageUrl: pendingCropUpload.imageUrl,
+      }
     })
-    event.target.value = ""
+    setPendingCropUpload(null)
+    setFeedback("Banner aplicado. Clique em salvar para publicar a mudança.")
   }
 
   function removeAttorneyPhoto() {
-    setAttorneyPhotoObjectUrl(null)
-
-    updateNewsletter((draft) => {
-      draft.attorney.photoUrl = undefined
-      draft.attorney.photoAlt = undefined
-    })
+    void saveFixedProfile(
+      {
+        ...fixedProfileRef.current,
+        attorneyPhotoAlt: defaultNewsletterProfile.attorneyPhotoAlt,
+        attorneyPhotoCrop: defaultNewsletterImageCrop,
+        attorneyPhotoUrl: defaultNewsletterProfile.attorneyPhotoUrl,
+      },
+      "Foto padrão restaurada nas configurações globais.",
+    )
   }
 
   function restoreDefaultTemplate() {
-    setAttorneyPhotoObjectUrl(null)
-
     syncHistory({
       future: [],
       past: [],
@@ -328,7 +552,7 @@ export function NewsletterEditor({
     setFeedback(null)
     const newsletterForAction = applyNewsletterProfile(
       newsletterRef.current,
-      fixedProfile,
+      fixedProfileRef.current,
     )
 
     commitNewsletter(newsletterForAction, { recordHistory: false })
@@ -408,6 +632,27 @@ export function NewsletterEditor({
     )
     setCopiedPublicLink(true)
     window.setTimeout(() => setCopiedPublicLink(false), 1600)
+  }
+
+  async function copyAiMemory() {
+    try {
+      await navigator.clipboard.writeText(NEWSLETTER_CONTENT_IMPORT_AI_MEMORY)
+    } catch {
+      setFeedback("Não foi possível copiar a memória agora.")
+      return
+    }
+
+    setIsImportOpen(false)
+    setShowMemoryCopied(true)
+
+    if (memoryCopiedTimeoutRef.current) {
+      clearTimeout(memoryCopiedTimeoutRef.current)
+    }
+
+    memoryCopiedTimeoutRef.current = setTimeout(() => {
+      setShowMemoryCopied(false)
+      memoryCopiedTimeoutRef.current = null
+    }, 4200)
   }
 
   function applyContentImport() {
@@ -586,14 +831,7 @@ export function NewsletterEditor({
               value={contentImportDraft}
               onApply={applyContentImport}
               onClose={() => setIsImportOpen(false)}
-              onCopyMemory={() =>
-                navigator.clipboard.writeText(
-                  NEWSLETTER_CONTENT_IMPORT_AI_MEMORY,
-                )
-              }
-              onLoadSample={() =>
-                setContentImportDraft(NEWSLETTER_CONTENT_IMPORT_SAMPLE)
-              }
+              onCopyMemory={() => void copyAiMemory()}
               onOpen={() => setIsImportOpen((current) => !current)}
               onValueChange={setContentImportDraft}
             />
@@ -694,7 +932,20 @@ export function NewsletterEditor({
                   viewport={viewport}
                   onAttorneyPhotoChange={handleAttorneyPhotoChange}
                   onChange={updateNewsletter}
+                  onCoverImageChange={handleCoverImageChange}
+                  onImageUploadRejected={showImageUploadRejected}
+                  onRemoveCoverImage={removeCoverImage}
                   onRemoveAttorneyPhoto={removeAttorneyPhoto}
+                  onSaveCoverImageCrop={saveCoverImageCrop}
+                  onSaveAttorneyPhotoCrop={(crop) =>
+                    saveFixedProfile(
+                      {
+                        ...fixedProfileRef.current,
+                        attorneyPhotoCrop: crop,
+                      },
+                      "Corte da foto salvo nas configurações globais.",
+                    )
+                  }
                 />
               </div>
             </div>
@@ -705,11 +956,76 @@ export function NewsletterEditor({
               viewport={viewport}
               onAttorneyPhotoChange={handleAttorneyPhotoChange}
               onChange={updateNewsletter}
+              onCoverImageChange={handleCoverImageChange}
+              onImageUploadRejected={showImageUploadRejected}
+              onRemoveCoverImage={removeCoverImage}
               onRemoveAttorneyPhoto={removeAttorneyPhoto}
+              onSaveCoverImageCrop={saveCoverImageCrop}
+              onSaveAttorneyPhotoCrop={(crop) =>
+                saveFixedProfile(
+                  {
+                    ...fixedProfileRef.current,
+                    attorneyPhotoCrop: crop,
+                  },
+                  "Corte da foto salvo nas configurações globais.",
+                )
+              }
             />
           )}
         </div>
       </section>
+
+      {pendingCropUpload ? (
+        <PhotoCropDialog
+          confirmLabel={
+            pendingCropUpload.kind === "attorney"
+              ? "Aplicar foto"
+              : "Aplicar banner"
+          }
+          crop={defaultNewsletterImageCrop}
+          imageUrl={pendingCropUpload.imageUrl}
+          open
+          previewClassName={
+            pendingCropUpload.kind === "cover"
+              ? "aspect-[16/5] max-w-[680px]"
+              : undefined
+          }
+          showTrigger={false}
+          stageClassName={
+            pendingCropUpload.kind === "cover" ? "min-h-[330px]" : undefined
+          }
+          title={
+            pendingCropUpload.kind === "attorney"
+              ? "Ajustar foto"
+              : "Ajustar banner"
+          }
+          onApply={applyPendingCropUpload}
+          onOpenChange={(open) => {
+            if (!open) {
+              setPendingCropUpload(null)
+            }
+          }}
+        />
+      ) : null}
+
+      {showMemoryCopied ? (
+        <div
+          aria-live="polite"
+          className="fixed inset-0 z-[90] grid place-items-center bg-black/55 px-5"
+          role="status"
+        >
+          <div className="w-full max-w-[340px] rounded-xl bg-white px-6 py-5 text-center shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
+            <p className="text-sm font-semibold leading-6 text-black">
+              Modelo de conteúdo copiado, cole na sua IA.
+            </p>
+          </div>
+        </div>
+      ) : null}
+
+      <ImageUploadWarning
+        message={imageUploadWarning}
+        onClose={() => setImageUploadWarning(null)}
+      />
     </main>
   )
 }
@@ -822,7 +1138,6 @@ type ContentImportPopoverProps = {
   onApply: () => void
   onClose: () => void
   onCopyMemory: () => void
-  onLoadSample: () => void
   onOpen: () => void
   onValueChange: (value: string) => void
   value: string
@@ -833,7 +1148,6 @@ function ContentImportPopover({
   onApply,
   onClose,
   onCopyMemory,
-  onLoadSample,
   onOpen,
   onValueChange,
   value,
@@ -873,22 +1187,13 @@ function ContentImportPopover({
           />
 
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap gap-3">
-              <button
-                className="text-xs font-semibold text-black/55 underline-offset-4 hover:text-black hover:underline"
-                onClick={onLoadSample}
-                type="button"
-              >
-                Carregar modelo
-              </button>
-              <button
-                className="text-xs font-semibold text-black/55 underline-offset-4 hover:text-black hover:underline"
-                onClick={onCopyMemory}
-                type="button"
-              >
-                Copiar memória IA
-              </button>
-            </div>
+            <button
+              className="text-xs font-semibold text-black/55 underline-offset-4 hover:text-black hover:underline"
+              onClick={onCopyMemory}
+              type="button"
+            >
+              Copiar memória
+            </button>
             <Button
               className="border-black bg-black text-white hover:bg-black/80"
               onClick={onApply}

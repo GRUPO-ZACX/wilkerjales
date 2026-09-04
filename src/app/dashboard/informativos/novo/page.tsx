@@ -4,6 +4,7 @@ import { NewsletterEditor } from "yes@/components/newsletter/editor/newsletter-e
 import { applyNewsletterProfile } from "yes@/lib/newsletter/profile"
 import { defaultNewsletterTemplate } from "yes@/lib/newsletter/default-template"
 import { getCurrentUserNewsletterProfile } from "yes@/lib/newsletter/profile-server"
+import { saveNewsletterProfileAction } from "../../configuracoes/actions"
 import { createNewsletterAction } from "../actions"
 
 export const metadata: Metadata = {
@@ -23,6 +24,7 @@ export default async function NovoInformativoPage() {
       )}
       initialProfile={settings.profile}
       onSaveDraft={createNewsletterAction}
+      onSaveProfile={saveNewsletterProfileAction}
     />
   )
 }

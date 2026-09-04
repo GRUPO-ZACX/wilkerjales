@@ -1,7 +1,9 @@
 import { defaultNewsletterTemplate } from "./default-template"
+import { normalizeNewsletterImageCrop } from "./image-crop"
 import { normalizeNewsletterSections } from "./sections"
 import type {
   NewsletterContact,
+  NewsletterCover,
   NewsletterCustomSection,
   NewsletterNumberedCard,
   NewsletterSection,
@@ -238,6 +240,18 @@ function normalizeTheme(value: unknown) {
   }
 }
 
+function normalizeCover(value: unknown, fallback: NewsletterCover | undefined) {
+  if (!isRecord(value)) {
+    return fallback
+  }
+
+  return {
+    crop: normalizeNewsletterImageCrop(value.crop ?? fallback?.crop),
+    imageAlt: optionalString(value.imageAlt),
+    imageUrl: optionalString(value.imageUrl),
+  }
+}
+
 function normalizeCustomSections(value: unknown): NewsletterCustomSection[] {
   if (!Array.isArray(value)) {
     return []
@@ -413,6 +427,7 @@ export function normalizeNewsletterTemplate(value: unknown): NewsletterTemplate 
       logoUrl: optionalString(firm.logoUrl),
       name: stringOrFallback(firm.name, fallback.firm.name),
     },
+    cover: normalizeCover(value.cover, fallback.cover),
     banner: stringOrFallback(value.banner, fallback.banner),
     category: stringOrFallback(value.category, fallback.category),
     title: stringOrFallback(value.title, fallback.title),
@@ -427,6 +442,9 @@ export function normalizeNewsletterTemplate(value: unknown): NewsletterTemplate 
       initials: stringOrFallback(attorney.initials, fallback.attorney.initials),
       name: stringOrFallback(attorney.name, fallback.attorney.name),
       photoAlt: optionalString(attorney.photoAlt),
+      photoCrop: normalizeNewsletterImageCrop(
+        attorney.photoCrop ?? fallback.attorney.photoCrop
+      ),
       photoUrl: optionalString(attorney.photoUrl),
       phrase: stringOrFallback(attorney.phrase, fallback.attorney.phrase),
       specialty: stringOrFallback(
@@ -469,6 +487,11 @@ export function prepareNewsletterForPersistence(value: NewsletterTemplate) {
   if (newsletter.firm.logoUrl?.startsWith("blob:")) {
     newsletter.firm.logoUrl = undefined
     newsletter.firm.logoAlt = undefined
+  }
+
+  if (newsletter.cover?.imageUrl?.startsWith("blob:")) {
+    newsletter.cover.imageUrl = undefined
+    newsletter.cover.imageAlt = undefined
   }
 
   newsletter.customSections = newsletter.customSections?.map((section) => {

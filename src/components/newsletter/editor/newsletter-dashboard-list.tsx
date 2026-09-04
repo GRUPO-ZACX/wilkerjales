@@ -22,6 +22,8 @@ import {
   renameNewsletterFromListAction,
   unpublishNewsletterFromListAction,
 } from "yes@/app/dashboard/informativos/actions"
+import { newsletterImageCropBackgroundStyle } from "yes@/lib/newsletter/image-crop"
+import { normalizeNewsletterTemplate } from "yes@/lib/newsletter/normalize"
 import { cn } from "yes@/lib/utils"
 
 type NewsletterDashboardListProps = {
@@ -154,6 +156,11 @@ function NewsletterItem({ newsletter, viewMode }: NewsletterItemProps) {
   const isPublished = newsletter.status === "published"
   const editHref = `/dashboard/informativos/${newsletter.id}/editar`
   const publicHref = `/informativo/${newsletter.slug}`
+  const content = useMemo(
+    () => normalizeNewsletterTemplate(newsletter.content),
+    [newsletter.content],
+  )
+  const coverImageUrl = content.cover?.imageUrl?.trim()
   const publicationLabel =
     isPublished && newsletter.published_at
       ? `Publicado em ${formatDate(newsletter.published_at)}`
@@ -172,9 +179,37 @@ function NewsletterItem({ newsletter, viewMode }: NewsletterItemProps) {
       className={cn(
         "rounded-xl border border-black/10 bg-white p-4 text-black shadow-[0_12px_34px_rgba(0,0,0,0.04)] transition-[border-color,box-shadow,transform] hover:border-black/25 hover:shadow-[0_18px_44px_rgba(0,0,0,0.08)]",
         viewMode === "list" &&
-          "grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center"
+          cn(
+            "grid gap-4 lg:items-center",
+            coverImageUrl
+              ? "lg:grid-cols-[144px_minmax(0,1fr)_auto]"
+              : "lg:grid-cols-[minmax(0,1fr)_auto]",
+          )
       )}
     >
+      {coverImageUrl ? (
+        <Link
+          aria-label={`Abrir informativo ${newsletter.title}`}
+          className={cn(
+            "relative block overflow-hidden rounded-lg border border-black/10 bg-black/[0.04]",
+            viewMode === "list"
+              ? "h-20 lg:w-36"
+              : "mb-4 aspect-[16/5] w-full",
+          )}
+          href={editHref}
+        >
+          <span
+            aria-label={content.cover?.imageAlt || newsletter.title}
+            className="absolute inset-0 bg-cover bg-no-repeat"
+            role="img"
+            style={newsletterImageCropBackgroundStyle(
+              coverImageUrl,
+              content.cover?.crop,
+            )}
+          />
+        </Link>
+      ) : null}
+
       <div className="min-w-0">
         {isRenaming ? (
           <form

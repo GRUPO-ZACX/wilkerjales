@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react"
 
+import { newsletterImageCropBackgroundStyle } from "yes@/lib/newsletter/image-crop"
 import type {
   NewsletterTemplate,
   RichTextSegment,
@@ -177,13 +178,16 @@ export function NewsletterA4Document({
 
         <footer className="mt-auto border-t border-[#B7B783] bg-[#ECE8D8] px-[14mm] py-[6mm]">
           <div className="grid grid-cols-[24mm_minmax(0,1fr)_42mm] items-center gap-[5mm]">
-            <div className="h-[24mm] overflow-hidden border border-[#B7B783] bg-[#F7F5EE]">
+            <div className="relative h-[24mm] overflow-hidden border border-[#B7B783] bg-[#F7F5EE]">
               {attorney.photoUrl ? (
                 <div
                   aria-label={attorney.photoAlt ?? attorney.name}
-                  className="h-full w-full bg-cover bg-top"
+                  className="absolute inset-0 bg-cover bg-no-repeat"
                   role="img"
-                  style={{ backgroundImage: `url(${attorney.photoUrl})` }}
+                  style={newsletterImageCropBackgroundStyle(
+                    attorney.photoUrl,
+                    attorney.photoCrop,
+                  )}
                 />
               ) : null}
             </div>

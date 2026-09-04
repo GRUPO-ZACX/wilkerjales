@@ -1,13 +1,19 @@
 import type {
   NewsletterContact,
   NewsletterCta,
+  NewsletterImageCrop,
   NewsletterTemplate,
 } from "./types"
+import {
+  defaultNewsletterImageCrop,
+  normalizeNewsletterImageCrop,
+} from "./image-crop"
 
 export type NewsletterProfile = {
   address: string
   attorneyName: string
   attorneyPhotoAlt: string
+  attorneyPhotoCrop: NewsletterImageCrop
   attorneyPhotoUrl: string
   attorneyPhrase: string
   attorneySpecialty: string
@@ -35,6 +41,7 @@ export const defaultNewsletterProfile: NewsletterProfile = {
   address: "Av. Paulista, 1000 · São Paulo, SP",
   attorneyName: "Dr. Wilker Jales",
   attorneyPhotoAlt: "Foto do advogado Wilker Jales",
+  attorneyPhotoCrop: defaultNewsletterImageCrop,
   attorneyPhotoUrl: "/jales-assets/wilker-jales2.jpg",
   attorneyPhrase:
     "Informação jurídica clara, prática e segura para a gestão condominial.",
@@ -79,6 +86,7 @@ export function normalizeNewsletterProfile(
       value?.attorneyPhotoAlt,
       defaultNewsletterProfile.attorneyPhotoAlt,
     ),
+    attorneyPhotoCrop: normalizeNewsletterImageCrop(value?.attorneyPhotoCrop),
     attorneyPhotoUrl: cleanProfileValue(
       value?.attorneyPhotoUrl,
       defaultNewsletterProfile.attorneyPhotoUrl,
@@ -247,6 +255,7 @@ export function applyNewsletterProfile(
       initials: initialsFromName(normalizedProfile.attorneyName),
       name: normalizedProfile.attorneyName,
       photoAlt: normalizedProfile.attorneyPhotoAlt,
+      photoCrop: normalizedProfile.attorneyPhotoCrop,
       photoUrl: normalizedProfile.attorneyPhotoUrl,
       phrase: normalizedProfile.attorneyPhrase,
       specialty: normalizedProfile.attorneySpecialty,
