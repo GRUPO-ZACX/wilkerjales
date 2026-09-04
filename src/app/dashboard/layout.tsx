@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 
 import { DashboardShell } from "yes@/components/newsletter/editor/dashboard-shell"
+import { ADMIN_LOGIN_PATH } from "yes@/lib/auth/routes"
 import { hasSupabaseEnv } from "yes@/lib/supabase/env"
 import { createClient } from "yes@/lib/supabase/server"
 
@@ -18,7 +19,7 @@ export default async function DashboardLayout({
     } = await supabase.auth.getUser()
 
     if (!user) {
-      redirect("/login")
+      redirect(ADMIN_LOGIN_PATH)
     }
   }
 

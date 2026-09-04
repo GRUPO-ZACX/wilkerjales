@@ -4,6 +4,7 @@ import { LogOut } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 import { Button } from "yes@/components/ui/button"
+import { ADMIN_LOGIN_PATH } from "yes@/lib/auth/routes"
 import { hasSupabaseEnv } from "yes@/lib/supabase/env"
 import { createClient } from "yes@/lib/supabase/client"
 
@@ -16,7 +17,7 @@ export function LogoutButton() {
       await supabase.auth.signOut()
     }
 
-    router.push("/login")
+    router.push(ADMIN_LOGIN_PATH)
     router.refresh()
   }
 

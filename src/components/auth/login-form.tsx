@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 
 import { Button } from "yes@/components/ui/button"
 import { Input } from "yes@/components/ui/input"
+import { getSafeDashboardRedirect } from "yes@/lib/auth/routes"
 import { createClient } from "yes@/lib/supabase/client"
 
 type LoginFormProps = {
@@ -18,7 +19,7 @@ export function LoginForm({ isConfigured }: LoginFormProps) {
   const [password, setPassword] = useState("")
   const [message, setMessage] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const redirectTo = searchParams.get("redirectTo") || "/dashboard/informativos"
+  const redirectTo = getSafeDashboardRedirect(searchParams.get("redirectTo"))
 
   async function signIn() {
     setMessage(null)
