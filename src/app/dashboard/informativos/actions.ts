@@ -181,6 +181,7 @@ export async function updateNewsletterAction(
     .update({
       content: contentWithSlug as unknown as Json,
       title,
+      user_id: userId,
     })
     .eq("id", id)
 
@@ -228,6 +229,7 @@ export async function publishNewsletterAction(
       published_at: new Date().toISOString(),
       status: "published",
       title,
+      user_id: userId,
     })
     .eq("id", id)
 
@@ -274,6 +276,7 @@ export async function unpublishNewsletterAction(
       published_at: null,
       status: "draft",
       title,
+      user_id: userId,
     })
     .eq("id", id)
 
@@ -318,6 +321,7 @@ export async function publishNewsletterFromListAction(formData: FormData) {
       content: content as unknown as Json,
       published_at: new Date().toISOString(),
       status: "published",
+      user_id: userId,
     })
     .eq("id", id)
 
@@ -386,6 +390,7 @@ export async function renameNewsletterFromListAction(formData: FormData) {
     .update({
       content: content as unknown as Json,
       title,
+      user_id: userId,
     })
     .eq("id", id)
 
@@ -425,9 +430,9 @@ export async function deleteNewsletterFromListAction(formData: FormData) {
 
 export async function unpublishNewsletterFromListAction(formData: FormData) {
   const id = String(formData.get("id") ?? "")
-  const { error, supabase } = await requireAuthenticatedClient()
+  const { error, supabase, userId } = await requireAuthenticatedClient()
 
-  if (!id || error || !supabase) {
+  if (!id || error || !supabase || !userId) {
     return
   }
 
@@ -443,6 +448,7 @@ export async function unpublishNewsletterFromListAction(formData: FormData) {
     .update({
       published_at: null,
       status: "draft",
+      user_id: userId,
     })
     .eq("id", id)
 

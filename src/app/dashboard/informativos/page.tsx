@@ -69,16 +69,16 @@ export default async function InformativosPage() {
         </div>
 
         {newsletters.length === 0 ? (
-            <div className="rounded-xl border border-black/10 bg-white p-8 text-center shadow-[0_12px_34px_rgba(0,0,0,0.04)]">
-              <FileText className="mx-auto size-10 text-black/55" />
-              <h2 className="mt-4 text-xl font-semibold text-black">
-                Nenhum informativo salvo ainda
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-black/55">
-                Crie o primeiro rascunho para começar a persistir o conteúdo no
-                Supabase.
-              </p>
-            </div>
+          <div className="rounded-xl border border-black/10 bg-white p-8 text-center shadow-[0_12px_34px_rgba(0,0,0,0.04)]">
+            <FileText className="mx-auto size-10 text-black/55" />
+            <h2 className="mt-4 text-xl font-semibold text-black">
+              Nenhum informativo salvo ainda
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-black/55">
+              Crie o primeiro rascunho para começar a persistir o conteúdo no
+              Supabase.
+            </p>
+          </div>
         ) : (
           <NewsletterDashboardList newsletters={newsletters} />
         )}
